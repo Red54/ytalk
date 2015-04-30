@@ -19,7 +19,18 @@
 #include "header.h"
 #include "menu.h"
 #include "socket.h"
-#include <sys/time.h>
+
+#ifdef TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# ifdef HAVE_SYS_TIME
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
+#endif
+
 #ifdef _AIX
 # include <sys/select.h>
 #endif
@@ -51,7 +62,8 @@ static int
 init_dgram(sock)
   struct sockaddr_in *sock;
 {
-    int fd, socklen;
+    int fd;
+    size_t socklen;
 
     sock->sin_family = AF_INET;
     IN_ADDR(*sock) = INADDR_ANY;
@@ -114,7 +126,7 @@ static void
 read_autoport(fd)
   int fd;
 {
-    int socklen;
+    size_t socklen;
     static v2_pack pack;
     static char estr[V2_NAMELEN + V2_HOSTLEN + 20];
     static struct sockaddr_in temp;
@@ -154,7 +166,7 @@ read_autoport(fd)
 static void
 init_autoport()
 {
-    int socklen;
+    size_t socklen;
 
     autosock.sin_family = AF_INET;
     IN_ADDR(autosock) = INADDR_ANY;
@@ -197,13 +209,15 @@ init_autoport()
  */
 static void
 place_my_address(sock, addr)
-  struct sockaddr_in *sock;
+  BSD42_SOCK *sock;
   register ylong addr;
 {
     register readdr *r;
 
     for(r = readdr_list; r != NULL; r = r->next)
-	if((addr & r->mask) == r->addr)
+
+	if( ((r->from_addr & r->from_mask) == (me->host_addr & r->from_mask))
+		&& ((addr & r->mask) == r->addr) )
 	{
 	    addr = (r->id_addr & r->id_mask) |
 		   (me->host_addr & (~(r->id_mask)));
@@ -296,7 +310,7 @@ sendit(addr, d)
     {
     	do
 	{
-	    n = sendto(talkd[d].fd, talkd[d].mptr, talkd[d].mlen,
+	    n = sendto(talkd[d].fd, (char *)talkd[d].mptr, talkd[d].mlen,
 		0, (struct sockaddr *) &daemon, sizeof(daemon));
 	    if(n != talkd[d].mlen)
 	    {
@@ -387,7 +401,8 @@ find_daemon(addr)
     CTL_MSG42 m2;
     struct sockaddr_in daemon;
     struct timeval tv;
-    int sel, out;
+    int out, max;
+    fd_set sel;
     static hostinfo *host_head = NULL;
 
     /* If we've already used this host, look it up instead of blitting to
@@ -402,9 +417,11 @@ find_daemon(addr)
 
     m1 = omsg;
     m2 = nmsg;
-    m1.ctl_addr = talkd[otalk].sock;
+    /* m1.ctl_addr = talkd[otalk].sock; */
+    memcpy(&m1.ctl_addr, &talkd[otalk].sock, sizeof(m1.ctl_addr));
     place_my_address(&(m1.ctl_addr), addr);
-    m2.ctl_addr = talkd[ntalk].sock;
+    /* m2.ctl_addr = talkd[ntalk].sock; */
+    memcpy(&m2.ctl_addr, &talkd[ntalk].sock, sizeof(m2.ctl_addr));
     place_my_address(&(m2.ctl_addr), addr);
     m1.type = m2.type = LOOK_UP;
     m1.id_num = m2.id_num = htonl(0);
@@ -412,26 +429,34 @@ find_daemon(addr)
     strcpy(m1.r_name, "ytalk");
     strcpy(m2.r_name, "ytalk");
     m1.addr.sin_family = m2.addr.sin_family = htons(AF_INET);
+    m1.ctl_addr.sin_family = m2.ctl_addr.sin_family = htons(AF_INET);
 
     out = 0;
     for(i = 0; i < 5; i++)
     {
 	IN_PORT(daemon) = talkd[ntalk].port;
-	n = sendto(talkd[ntalk].fd, &m2, sizeof(m2),
+	n = sendto(talkd[ntalk].fd, (char *)&m2, sizeof(m2),
 	    0, (struct sockaddr *) &daemon, sizeof(daemon));
 	if(n != sizeof(m2))
 	    show_error("Warning: cannot write to new talk daemon");
 
 	IN_PORT(daemon) = talkd[otalk].port;
-	n = sendto(talkd[otalk].fd, &m1, sizeof(m1),
+	n = sendto(talkd[otalk].fd, (char *)&m1, sizeof(m1),
 	    0, (struct sockaddr *) &daemon, sizeof(daemon));
 	if(n != sizeof(m1))
 	    show_error("Warning: cannot write to old talk daemon");
 
 	tv.tv_sec = 4L;
 	tv.tv_usec = 0L;
-	sel = (1 << talkd[ntalk].fd) | (1 << talkd[otalk].fd);
-	if((n = select(32, &sel, 0, 0, &tv)) < 0)
+
+	FD_ZERO(&sel);
+	FD_SET(talkd[ntalk].fd, &sel);
+	FD_SET(talkd[otalk].fd, &sel);
+	max = talkd[ntalk].fd;
+	if (max < talkd[otalk].fd)
+	  max = talkd[otalk].fd;
+
+	if((n = select(1+max, &sel, NULL, NULL, &tv)) < 0)
 	{
 	    show_error("find_daemon: first select() failed");
 	    continue;
@@ -442,17 +467,26 @@ find_daemon(addr)
 	do
 	{
 	    for(d = 1; d <= daemons; d++)
-		if(sel & (1 << talkd[d].fd))
+		if(FD_ISSET(talkd[d].fd, &sel))
 		{
+		    int r;
+
+		    r = recv(talkd[d].fd, errstr, talkd[d].rlen, 0);
+		    if (r < 0) {
+		    	if (errno == EINTR || errno == ECONNREFUSED)
+			    continue;
+			else
+			    show_error("find_daemon: recv() failed");
+		    }
 		    out |= (1 << d);
-		    if(recv(talkd[d].fd, errstr, talkd[d].rlen, 0) < 0)
-			show_error("find_daemon: recv() failed");
 		}
 
 	    tv.tv_sec = 0L;
 	    tv.tv_usec = 500000L;	/* give the other daemon a chance */
-	    sel = (1 << talkd[ntalk].fd) | (1 << talkd[otalk].fd);
-	    if((n = select(32, &sel, 0, 0, &tv)) < 0)
+	    FD_ZERO(&sel);
+	    FD_SET(talkd[ntalk].fd, &sel);
+	    FD_SET(talkd[otalk].fd, &sel);
+	    if((n = select(1+max, &sel, NULL, NULL, &tv)) < 0)
 		show_error("find_daemon: second select() failed");
 	} while(n > 0);
 
@@ -461,7 +495,8 @@ find_daemon(addr)
 	host_head = h;
 	h->host_addr = addr;
 	h->dtype = out;
-	return out;
+	if (out)
+		return out;
     }
     sprintf(errstr, "No talk daemon on %s", host_name(addr));
     show_error(errstr);
@@ -499,8 +534,12 @@ init_socket()
 
     strncpy(nmsg.l_name, me->user_name, NAME_SIZE);
 
-    omsg.ctl_addr = talkd[otalk].sock;
-    nmsg.ctl_addr = talkd[ntalk].sock;
+    /* omsg.ctl_addr = talkd[otalk].sock; */
+    /* nmsg.ctl_addr = talkd[ntalk].sock; */
+    memcpy(&omsg.ctl_addr, &talkd[otalk].sock, sizeof(omsg.ctl_addr));
+    memcpy(&nmsg.ctl_addr, &talkd[ntalk].sock, sizeof(nmsg.ctl_addr));
+    /* just in case */
+    omsg.ctl_addr.sin_family = nmsg.ctl_addr.sin_family = htons(AF_INET);
     nmsg.vers = TALK_VERSION;
 
     (void)find_daemon(me->host_addr);
@@ -651,7 +690,8 @@ send_dgram(user, type)
 	strncpy(nmsg.r_name, user->user_name, NAME_SIZE);
 	strncpy(nmsg.r_tty, user->tty_name, TTY_SIZE);
     }
-    nmsg.addr = user->sock;
+    /* nmsg.addr = user->sock; */
+    memcpy(&nmsg.addr, &user->sock, sizeof(nmsg.addr));
     nmsg.addr.sin_family = htons(AF_INET);
     if(sendit(addr, d) != 0)
     {
@@ -693,7 +733,8 @@ send_auto(type)
     nmsg.type = type;
     strcpy(nmsg.r_name, "+AUTO");
     nmsg.r_tty[0] = '\0';
-    nmsg.addr = autosock;
+    /* nmsg.addr = autosock; */
+    memcpy(&nmsg.addr, &autosock, sizeof(nmsg.addr));
     nmsg.addr.sin_family = htons(AF_INET);
 
     rc = 0;
@@ -735,7 +776,8 @@ int
 newsock(user)
   yuser *user;
 {
-    int socklen, fd;
+    int fd;
+    size_t socklen;
 
     user->sock.sin_family = AF_INET;
     IN_ADDR(user->sock) = INADDR_ANY;
@@ -778,7 +820,8 @@ connect_to(user)
   yuser *user;
 {
     register yuser *u;
-    int socklen, fd;
+    int fd;
+    size_t socklen;
     struct sockaddr_in sock, orig_sock;
 
     orig_sock = *(struct sockaddr_in *)&nrsp.addr;
@@ -852,6 +895,7 @@ get_host_addr(hostname)
 }
 
 /* Find a host name by host address.
+   [19NOV96 Roger]: try to find the fqdn (1st alias with a dot)
  */
 char *
 host_name(addr)
@@ -859,6 +903,7 @@ host_name(addr)
 {
     struct hostent *host;
     char *inet_ntoa();
+    char **s;
 
     if((host = gethostbyaddr((char *) &addr, sizeof(addr), AF_INET)) == NULL)
     {
@@ -866,7 +911,14 @@ host_name(addr)
 	tmp.s_addr = addr;
 	return inet_ntoa(tmp);
     }
-    return host->h_name;
+    if (strchr(host->h_name, '.'))
+      return (char *)host->h_name;
+    s = host->h_aliases;
+    if (s && *s)
+      for (; *s; s++)
+        if (strchr(*s, '.'))
+          return *s;
+    return (char *)host->h_name;
 }
 
 /* Re-address a given host ("from_id") to the given address or host
@@ -904,16 +956,21 @@ readdress_host(from_id, to_id, on_id)
     to_mask = make_net_mask(to_addr);
     on_mask = make_net_mask(on_addr);
     
+#if 0
     if((from_addr & from_mask) != (me->host_addr & from_mask))
 	return;
+#endif
     if(from_addr == to_addr)
 	return;
 
     new = (readdr *)get_mem(sizeof(readdr));
     new->addr = on_addr;
     new->mask = on_mask;
+    new->from_addr = from_addr;
+    new->from_mask = from_mask;
     new->id_addr = to_addr;
     new->id_mask = to_mask;
     new->next = readdr_list;
     readdr_list = new;
 }
+

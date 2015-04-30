@@ -16,25 +16,34 @@
 
 /* Mail comments or questions to ytalk@austin.eds.com */
 
-#include <sys/types.h>
-#ifdef LINUX
-# include <linux/param.h>
-#else
-# include <sys/param.h>
+#include "config.h"
+
+#ifndef X_DISPLAY_MISSING
+# define USE_X11
 #endif
+
+#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+
 #ifdef USE_X11
 # include <X11/X.h>
 #endif
 
 #define VMAJOR	3	/* major version number */
-#define VMINOR	0	/* minor version number */
-#define VPATCH	3	/* patch level */
+#define VMINOR	1	/* minor version number */
+#define VPATCH	1	/* patch level */
+
+#define EIGHT_BIT_CLEAN /* take this one out if you don't want it */
 
 #ifdef EIGHT_BIT_CLEAN
 #define is_printable(x)  ( (((x) >= ' ' && (x) <= '~') || \
@@ -58,15 +67,13 @@
 
 /* ---- types ---- */
 
-typedef void *	yaddr;		/* any 32-bit address */
+typedef void *	yaddr;		/* any pointer address */
 typedef yaddr	yterm;		/* terminal cookie */
 typedef u_char	ychar;		/* we use unsigned chars */
 
-#ifdef Y64BIT
-typedef u_int	ylong;		/* unsigned 32-bit */
-#else
-typedef u_long	ylong;		/* unsigned 32-bit */
-#endif
+typedef	u_int	ylong;		/* this should work both on 32-bit and 64-bit
+				 * machines  -Roger
+				 */
 
 typedef struct {
     u_char w_rows, w_cols;	/* window size FOR PROTOCOL YTP_OLD */
@@ -103,6 +110,7 @@ typedef struct _yuser {
     char *full_name;		/* full name (up to 50 chars) */
     char *user_name;		/* user name */
     char *host_name;		/* host name */
+    char *host_fqdn;		/* host fully qualified name */
     char *tty_name;		/* tty name */
     ylong host_addr;		/* host inet address */
     int daemon;			/* daemon type to use */
@@ -136,11 +144,12 @@ typedef struct _yuser {
 #define FL_WRAP		0x00000004L	/* word-wrap enabled */
 #define FL_IMPORT	0x00000008L	/* auto-import enabled */
 #define FL_INVITE	0x00000010L	/* auto-invite enabled */
-#define FL_RING		0x00000020L	/* auto-rering enabled */
+#define FL_RING		0x00000020L	/* rering at all */
 #define FL_XWIN		0x00000040L	/* X Windows enabled (startup opt) */
 #define FL_ASIDE	0x00000080L	/* multiple window input/asides */
 #define FL_CAPS		0x00000100L     /* want caps as answers */
 #define FL_NOAUTO       0x00000200L     /* no auto-invite port */
+#define FL_PROMPTRING	0x00000400L	/* prompt before reringing */
 #define FL_LOCKED	0x40000000L	/* flags locked by other end */
 
 /* ---- defines and short-cuts ---- */
@@ -233,7 +242,9 @@ typedef struct {
 
 /* ---- global variables ---- */
 
-extern char *sys_errlist[];	/* system errors */
+#ifndef HAVE_STRERROR
+extern char * sys_errlist[];	/* system errors */
+#endif
 
 extern yuser *me;		/* just lil' ol' me */
 extern yuser *user_list;	/* full list of invited/connected users */
@@ -252,11 +263,20 @@ extern int running_process;	/* flag: is process running? */
 
 /* ---- some machine compatibility definitions ---- */
 
-#if defined(SYSV)
-# define Y_USE_SIGHOLD 1
-#endif
-
 extern int errno;
+
+/* aliases -- added by Roger Espel Llima (borrowed from utalk) */
+
+struct alias {
+  char from[256], to[256];
+  int type;
+  struct alias *next;
+};
+
+#define ALIAS_ALL       0
+#define ALIAS_BEFORE    1
+#define ALIAS_AFTER     2
+
 
 /* ---- global functions ---- */
 
@@ -306,6 +326,7 @@ extern void	init_user	();				/* user.c */
 extern yuser   *new_user	( /* name, host, tty */ );	/* user.c */
 extern void	free_user	( /* yuser */ );		/* user.c */
 extern yuser   *find_user	( /* name, host_addr, pid */ );	/* user.c */
+extern void	generate_full_name ( /* yuser */ );		/* user.c */
 
 extern void	init_fd		();				/* fd.c */
 extern void	add_fd		( /* fd, func */ );		/* fd.c */
@@ -314,7 +335,7 @@ extern int	full_read	( /* fd, buf, len */ );		/* fd.c */
 extern void	main_loop	();				/* fd.c */
 extern void	input_loop	();				/* fd.c */
 
-extern void	invite		( /* username, announce */ );	/* comm.c */
+extern yuser   *invite		( /* username, announce */ );	/* comm.c */
 extern void	house_clean	();				/* comm.c */
 extern void	send_winch	( /* yuser */ );		/* comm.c */
 extern void	send_region	();				/* comm.c */
@@ -337,6 +358,7 @@ extern char    *host_name	( /* addr */ );			/* socket.c */
 extern void	readdress_host	( /* from, to, on */ );		/* socket.c */
 
 extern void	read_ytalkrc	();				/* rc.c */
+extern char    *resolve_alias	( /* uh */ );			/* rc.c */
 
 extern void	execute		( /* command */ );		/* exec.c */
 extern void	update_exec	();				/* exec.c */

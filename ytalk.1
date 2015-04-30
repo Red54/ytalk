@@ -1,5 +1,5 @@
 '''
-'''  Ytalk Version 3
+'''  Ytalk Version 3.1.1
 '''
 .de Sh
 .br
@@ -8,13 +8,13 @@
 \fB\\$1\fR
 .PP
 ..
-.TH YTalk 1 "20 Nov 1993"
+.TH YTalk 1 "10 May 1999"
 .SH NAME
 ytalk - A multi-user chat program. 
 .SH SYNOPSIS
-ytalk [-x] [-s] [-Y] [-i] username...
+ytalk [-x] [-s] [-Y] [-i] [-h hostname_or_ip] username...
 .SH DESCRIPTION
-.I YTalk V3.0 Patch Level 2
+.I YTalk V3.1.1
 .PP
 YTalk is in essence a multi-user chat program.  It works almost exactly like
 the UNIX talk program and even communicates with the same talk daemon(s), but
@@ -35,6 +35,8 @@ field may be formatted in several different ways:
 				 different machine
 .br
 	name@host#tty - same as "name#tty@host"
+.br
+	aliasname     - an alias defined in your .ytalkrc
 .PP
 You can specify multiple user names on the command line, ie:
 .sp
@@ -47,19 +49,23 @@ The -s option starts your YTalk window in a shell.
 The -i option disables the auto-invite port (meaning you won't see
 "talk to blah@blah.com", but your talk daemon will beep you instead).
 .PP
+The -h option specifies the name or address of the local machine; this
+is useful on multi-homed machines, or virtual hosts, to specify which
+network interface to use for communication.
+.PP
 The -Y option requires a capital Y or N as an answer to any yes/no
 question.
 .PP
 For each user on the command line, YTalk will attempt to connect to the talk
 daemon on the specified user's host and determine if that user has left an
 invitation for you to call.  If not, YTalk leaves an invitation for him
-and tells his talk daemon to send an announcement to his screen.
-There is not yet a dedicated YTalk daemon, but there will be.  Right now,
-YTalk is able to communicate with BOTH existing versions of UNIX talk
-daemons.  For any particular host, YTalk will attempt to communicate with a 
-talk daemon the caller's host also supports.  If the two hosts have no daemon
-in common, then UNIX talk will not function at all, but a connection is
-possible through (and only through) YTalk.
+and tells his talk daemon to send an announcement to his screen.  There
+is no dedicated YTalk daemon.  Right now, YTalk is able to communicate
+with BOTH existing versions of UNIX talk daemons.  For any particular
+host, YTalk will attempt to communicate with a talk daemon the caller's
+host also supports.  If the two hosts have no daemon in common, then
+UNIX talk will not function at all, but a connection is possible through
+(and only through) YTalk.
 .PP
 Once a connection has been established between two users, they can chat back
 and forth to their hearts' content.  The connection is terminated when one
@@ -170,7 +176,9 @@ to edit the YTalk options.  The current options are:
 .br
 	v: turn auto-invite [off/on]
 .br
-	r: turn auto-rering [off/on]
+	r: turn reringing [off/on]
+.br
+	p: [don't] prompt before rerings
 .br
 	a: turn asides [off/on]
 .PP
@@ -198,10 +206,13 @@ by another user and add them to your session.  You will not be asked for
 verification.
 .PP
 If
-.I auto-rering
-is turned on, then YTalk will automatically re-ring any user who does not
-respond to your invitation within 30 seconds.  You will not be asked for
-verification.
+.I rering
+is turned on, then YTalk will re-ring any user who does not respond to
+your invitation within 30 seconds.
+.PP
+If
+.I prompt-rering
+is turned on, then YTalk will ask you before re-ringing a user.
 .PP
 If
 .I asides
@@ -229,7 +240,8 @@ is one of
 .I word-wrap ,
 .I auto-import ,
 .I auto-invite ,
-.I auto-rering ,
+.I rering ,
+.I prompt-rering ,
 .I caps ,
 .I noinvite ,
 .I nodelay ,
@@ -242,6 +254,30 @@ on or off will enable or disable the X11 Interface described below.
 For example, one could enable word-wrap with the line:
 .sp
 	turn word-wrap on
+.Sh "ALIASES"
+You can setup aliases so you don't have to type the full address of
+the user you want to ring.  There are three types of aliases:
+.TP 12
+.B "alias \fIaliasname\fR@ \fIusername\fR@"
+Replaces \fIaliasname\fR@\fIhost\fR with \fIusername\fR@\fIhost\fR for
+every host. The '@' at the end of \fIusername@\fR is not required.
+.TP 12
+.B "alias @\fIaliashost\fR @\fIrealhost\fR"
+Replaces \fIuser\fR@\fIaliashost\fR with \fIuser\fR@\fIrealhost\fR for
+every user. The '@' at the beginning of @\fIrealhost\fR is not required.
+.TP 12
+.B "alias \fIaliasname\fR \fIuser\fR@\fIhost\fR"
+Replaces \fIaliasname\fR with \fIuser\fR@\fIhost\fR.
+
+.Sh "SELECTING INTERFACES AND VIRTUAL HOSTS"
+On machines with multiple IP addresses (multiple interfaces, or virtual
+hosts), you can choose the default address to use for communication with
+YTalk, using the
+.B localhost
+command in your .ytalkrc file.  The syntax is:
+.TP 12
+.B "localhost \fIhostname-or-IP-address\fR"
+
 .Sh "SETTING RE-ADDRESS MODES"
 The purpose of readdressing is to allow Ytalk connections across
 point-to-point network gateways where the local machines know themselves
@@ -290,6 +326,10 @@ On the office end, the readdress command translates to:
 .PP
 which the office machines basically ignore.
 .PP
+Note that, in this case, the problem could also have been solved by
+telling the home YTalk to use the 192.67.141.0 interface, when doing
+YTalk requests across the PPP link.
+.PP
 Enough.  For more information on how to use this, consult the source code
 or send me a letter.  :-)
 .SH X11 INTERFACE
@@ -328,7 +368,9 @@ Work is being done on the following ideas:
 .br
 	2) MBCS/NLS support.
 .br
-
+.PP
+However, as this was claimed over 5 years ago, I wouldn't hold my breath on 
+it. :=)
 
 .SH FILES
 
@@ -347,8 +389,10 @@ $HOME/.ytalkrc
 Britt Yenne
 .br
 yenne@austin.eds.com
-.PP
-This version maintained by
+
+.SH CURRENT MAINTAINER
+
+Roger Espel Llima
 .br
 <roger.espel.llima@pobox.com>
 
@@ -375,11 +419,10 @@ Thanks to John Vanderpool, Shih-Chen Huang, Andrew Myers, Duncan Sinclair,
 Evan McLean, Larry Schwimmer, J. Adam Hawkes, and Mark Musone for comments
 and ideas.
 .PP
+Thanks to Steve McIntyre for patches and ideas.
+.PP
 The README file shipped with ytalk gives detailed attributions.
 
 .SH BUGS
-Hostnames of new connections passed to other connected parties are
-sometimes missing the domain part.
-.PP
-Please mail any other bugs to the maintainer of this version, at
+Please mail any bugs to the maintainer of this version, at
 <roger.espel.llima@pobox.com>

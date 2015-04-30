@@ -17,19 +17,39 @@
 /* Mail comments or questions to ytalk@austin.eds.com */
 
 #include "header.h"
+
+#ifdef HAVE_SYS_IOCTL_H
+# include <sys/ioctl.h>
+#endif
+
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
+
 #include <signal.h>
 #include <sys/wait.h>
-#ifdef PTM
+
+#ifdef HAVE_STROPTS_H
 #include <stropts.h>
+#endif
+
+#ifdef HAVE_SYS_CONF_H
 #include <sys/conf.h>
 #endif
-#ifdef USE_SGTTY
-# include <sys/ioctl.h>
-# ifdef hpux
-#  include <sys/bsdtty.h>
+
+#ifdef HAVE_TERMIOS_H
+# include <termios.h>
+#else
+# ifdef HAVE_SGTTY_H
 #  include <sgtty.h>
+#  ifdef hpux
+#   include <sys/bsdtty.h>
+#  endif
 # endif
+#endif
+
+#if defined(HAVE_PTSNAME) && defined(HAVE_GRANTPT) && defined(HAVE_UNLOCKPT)
+# define USE_DEV_PTMX
 #endif
 
 int running_process = 0;	/* flag: is process running? */
@@ -39,10 +59,11 @@ static int prows, pcols;	/* saved rows, cols */
 
 /* ---- local functions ---- */
 
-#ifdef USE_SGTTY
+#ifndef HAVE_SETSID
 static int
 setsid()
 {
+# ifdef TIOCNOTTY
     register int fd;
 
     if((fd = open("/dev/tty", O_RDWR)) >= 0)
@@ -51,12 +72,16 @@ setsid()
 	close(fd);
     }
     return fd;
+# endif
 }
 #endif
 
-#ifdef PTM
-extern char *ptsname();
+#ifdef USE_DEV_PTMX
 int needtopush=0;
+#endif
+
+#ifndef SIGCHLD
+# define SIGCLD SIGCHLD
 #endif
 
 static int
@@ -64,15 +89,26 @@ getpty(name)
   char *name;
 {
     register int pty, tty;
-    char *pty_dev = "/dev/ptc", *tt;
+    char *tt;
     extern char *ttyname();
 
-#ifdef PTM
+#ifdef USE_DEV_PTMX
+    RETSIGTYPE (*sigchld)();
+    int r = 0;
+#endif
+
+    /* look for a Solaris/UNIX98-type pseudo-device */
+
+#ifdef USE_DEV_PTMX
     if ((pty=open("/dev/ptmx", O_RDWR)) >= 0)
     {
-	grantpt(pty);
-	unlockpt(pty);
-	if ((tt=ptsname(pty)) != NULL)
+    	/* grantpt() might want to fork/exec! */
+	sigchld = signal(SIGCHLD, SIG_DFL);
+	r |= grantpt(pty);
+	r |= unlockpt(pty);
+	tt = ptsname(pty);
+	signal(SIGCHLD, sigchld);
+	if (r == 0 && tt != NULL)
 	{
 	    strcpy(name, tt);
 	    needtopush=1;
@@ -81,9 +117,11 @@ getpty(name)
     }
 #endif
 
-    /* first look for a SYSV-type pseudo device */
+#ifdef HAVE_TTYNAME
 
-    if((pty = open(pty_dev, O_RDWR)) >= 0)
+    /* look for an older SYSV-type pseudo device */
+
+    if((pty = open("/dev/ptc", O_RDWR)) >= 0)
     {
 	if((tt = ttyname(pty)) != NULL)
 	{
@@ -92,6 +130,8 @@ getpty(name)
 	}
 	close(pty);
     }
+
+#endif
 
     /* scan Berkeley-style */
 
@@ -186,6 +226,21 @@ execute(command)
 	msg_term(me, "cannot get pseudo terminal");
 	return;
     }
+
+/* init the pty a bit (inspired from the screen(1) sources, pty.c) */
+
+#if defined(HAVE_TCFLUSH) && defined(TCIOFLUSH)
+    tcflush(fd, TCIOFLUSH);
+#else
+# ifdef TIOCFLUSH
+    ioctl(fd, TIOCFLUSH, NULL);
+# else
+#  ifdef TIOCEXCL
+    ioctl(fd, TIOCEXCL, NULL);
+#  endif
+# endif
+#endif
+
     if((shell = (char *)getenv("SHELL")) == NULL)
 	shell = "/bin/sh";
     calculate_size(&prows, &pcols);
@@ -197,13 +252,16 @@ execute(command)
             exit(-1);
         if((fd = open(name, O_RDWR)) < 0)
             exit(-1);
-#ifdef PTM
+
+/* Solaris seems to need this... */
+#if defined(HAVE_STROPTS_H) && defined(I_PUSH)
 	if (needtopush)
 	{
 	    ioctl(fd, I_PUSH, "ptem");
 	    ioctl(fd, I_PUSH, "ldterm");
 	}
 #endif
+
         dup2(fd, 0);
         dup2(fd, 1);
         dup2(fd, 2);
@@ -219,7 +277,9 @@ execute(command)
 	set_terminal_flags(fd);
 	set_terminal_size(fd, prows, pcols);
 #ifndef NeXT
+# ifdef HAVE_PUTENV
 	putenv("TERM=vt100");
+# endif
 #endif
 
 	/* execute the command */

@@ -17,8 +17,14 @@
 /* Mail comments or questions to ytalk@austin.eds.com */
 
 #include "header.h"
+
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
+
 #include "menu.h"
+
+int show_user_list();
 
 /* This particular file was written real early one night (morning?)
  * while trying to stay awake long enough to do laundry.  I hereby take
@@ -153,7 +159,7 @@ main_menu_sel(key)
 		update_menu();
 	    break;
 	case 'd':	/* delete a user */
-	    if(show_user_menu("Delete Which User?", free_user) >= 0)
+	    if(show_user_menu("Delete Which User?", free_user, 0) >= 0)
 		update_menu();
 	    break;
 	case 'k':	/* kill all unconnected users */
@@ -173,7 +179,7 @@ main_menu_sel(key)
 		update_menu();
 	    break;
 	case 'w':	/* output user to file */
-	    if(show_user_menu("Output Which User?", do_output_user) >= 0)
+	    if(show_user_menu("Output Which User?", do_output_user, 1) >= 0)
 		update_menu();
 	    break;
 	case 'q':	/* quit */
@@ -206,8 +212,11 @@ option_menu_sel(key)
 	case 'v':	/* toggle automatic invitations */
 	    def_flags ^= FL_INVITE;
 	    break;
-	case 'r':	/* toggle automatic re-rings */
+	case 'r':	/* toggle re-rings */
 	    def_flags ^= FL_RING;
+	    break;
+	case 'p':	/* toggle prompting before re-rings */
+	    def_flags ^= FL_PROMPTRING;
 	    break;
     }
 
@@ -239,8 +248,8 @@ user_menu_sel(key)
 	if(user_menu[i].key == key)
 	{
 	    for(u = user_list; u; u = u->unext)
-		if(u->key == key
-		&& strcmp(u->full_name, user_menu[i].item) == 0)
+		if(u->key == key && 
+ 		   strcmp(u->full_name, user_menu[i].item) == 0)
 		{
 		    user_menu[0].func(u);
 		    break;
@@ -721,11 +730,19 @@ show_option_menu()
     i++;
 
     if(def_flags & FL_RING)
-	option_menu[i].item = "turn auto-rering off";
+	option_menu[i].item = "turn reringing off";
     else
-	option_menu[i].item = "turn auto-rering on";
+	option_menu[i].item = "turn reringing on";
     option_menu[i].func = option_menu_sel;
     option_menu[i].key = 'r';
+    i++;
+
+    if(def_flags & FL_PROMPTRING)
+	option_menu[i].item = "don't prompt rerings";
+    else
+	option_menu[i].item = "prompt before reringing";
+    option_menu[i].func = option_menu_sel;
+    option_menu[i].key = 'p';
     i++;
 
     if(term_does_asides())
@@ -743,25 +760,26 @@ show_option_menu()
 }
 
 int
-show_user_menu(title, func)
+show_user_menu(title, func, metoo)
   char *title;
   void (*func)();
+  int metoo;
 {
     register int i;
     register yuser *u;
 
     user_menu[0].item = title;
     user_menu[0].func = func;
-    user_menu[0].key = ' ';
+    user_menu[0].key = ' ' + (metoo != 0); /* kludge */
 
     user_menu[1].item = "";
     user_menu[1].func = NULL;
     user_menu[1].key = ' ';
 
     for(i = 2, u = user_list; u != NULL && i < MAXUMENU; u = u->unext)
-	if(u != me)
+	if(u != me || metoo)
 	{
-	    if(u->key != '\0')
+	    if (u->key != '\0')
 	    {
 		strcpy(user_buf[i], u->full_name);
 		user_menu[i].item = user_buf[i];
@@ -916,7 +934,7 @@ update_user_menu()
     {
 	redraw_term(me, 0);
 	if(user_menu[0].func)	/* it's a user menu */
-	    (void)show_user_menu(user_menu[0].item, user_menu[0].func);
+	    (void)show_user_menu(user_menu[0].item, user_menu[0].func, user_menu[0].key - ' ');
 	else	/* it's a user status list */
 	    (void)show_user_list();
 	update_menu();

@@ -16,9 +16,10 @@
 
 /* Mail comments or questions to ytalk@austin.eds.com */
 
+#include "header.h"
+
 #ifdef USE_X11
 
-#include "header.h"
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xresource.h>

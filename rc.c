@@ -20,6 +20,10 @@
 
 #define IS_WHITE(c)	((c)==' ' || (c)=='\t' || (c)=='\n')
 
+extern char *vhost;
+
+static struct alias *alias0 = NULL;
+
 /* ---- local functions ---- */
 
 static char *
@@ -61,14 +65,14 @@ set_option(opt, value)
     || strcmp(opt, "sc") == 0)
 	mask |= FL_SCROLL;
 
-    if(strcmp(opt, "wrap") == 0
+    else if(strcmp(opt, "wrap") == 0
     || strcmp(opt, "word-wrap") == 0
     || strcmp(opt, "wordwrap") == 0
     || strcmp(opt, "wrapping") == 0
     || strcmp(opt, "ww") == 0)
 	mask |= FL_WRAP;
 
-    if(strcmp(opt, "import") == 0
+    else if(strcmp(opt, "import") == 0
     || strcmp(opt, "auto-import") == 0
     || strcmp(opt, "autoimport") == 0
     || strcmp(opt, "importing") == 0
@@ -76,22 +80,26 @@ set_option(opt, value)
     || strcmp(opt, "ai") == 0)
 	mask |= FL_IMPORT;
 
-    if(strcmp(opt, "invite") == 0
+    else if(strcmp(opt, "invite") == 0
     || strcmp(opt, "auto-invite") == 0
     || strcmp(opt, "autoinvite") == 0
     || strcmp(opt, "aiv") == 0
     || strcmp(opt, "av") == 0)
 	mask |= FL_INVITE;
 
-    if(strcmp(opt, "ring") == 0
-    || strcmp(opt, "auto-ring") == 0
-    || strcmp(opt, "auto-rering") == 0
-    || strcmp(opt, "autoring") == 0
-    || strcmp(opt, "autorering") == 0
-    || strcmp(opt, "ar") == 0)
+    else if(strcmp(opt, "ring") == 0
+    || strcmp(opt, "rering") == 0
+    || strcmp(opt, "r") == 0)
 	mask |= FL_RING;
 
-    if(strcmp(opt, "xwin") == 0
+    else if(strcmp(opt, "prompt-ring") == 0
+    || strcmp(opt, "prompt-rering") == 0
+    || strcmp(opt, "promptring") == 0
+    || strcmp(opt, "promptrering") == 0
+    || strcmp(opt, "pr") == 0)
+	mask |= FL_PROMPTRING;
+
+    else if(strcmp(opt, "xwin") == 0
     || strcmp(opt, "xwindows") == 0
     || strcmp(opt, "XWindows") == 0
     || strcmp(opt, "Xwin") == 0
@@ -99,18 +107,18 @@ set_option(opt, value)
     || strcmp(opt, "X") == 0)
 	mask |= FL_XWIN;
 
-    if(strcmp(opt, "asides") == 0
+    else if(strcmp(opt, "asides") == 0
     || strcmp(opt, "aside") == 0
     || strcmp(opt, "as") == 0)
 	mask |= FL_ASIDE;
     
-    if(strcmp(opt, "caps") == 0
+    else if(strcmp(opt, "caps") == 0
     || strcmp(opt, "CAPS") == 0
     || strcmp(opt, "ca") == 0
     || strcmp(opt, "CA") == 0)
 	mask |= FL_CAPS;
 
-    if(strcmp(opt, "noinvite") == 0
+    else if(strcmp(opt, "noinvite") == 0
     || strcmp(opt, "no-invite") == 0
     || strcmp(opt, "noinv") == 0
     || strcmp(opt, "ni") == 0)
@@ -133,8 +141,9 @@ read_rcfile(fname)
 {
     FILE *fp;
     char *buf, *ptr;
-    char *w, *arg1, *arg2, *arg3;
+    char *w, *arg1, *arg2, *arg3, *at;
     int line_no, errline;
+    struct alias *a;
 
     if((fp = fopen(fname, "r")) == NULL)
     {
@@ -180,6 +189,57 @@ read_rcfile(fname)
 		break;
 	    }
 	}
+	else if (strcmp(w, "localhost") == 0)
+	{
+	    arg1 = get_word(&ptr);
+	    if(arg1 == NULL)
+	    {
+		errline = line_no;
+		break;
+	    }
+	    if (vhost == NULL)
+	    {
+		vhost = malloc(1+strlen(arg1));
+		if (vhost != NULL)
+		    strcpy(vhost, arg1);
+	    }
+	}
+	else if (strcmp(w, "alias") == 0)
+	{
+	    arg1 = get_word(&ptr);
+	    arg2 = get_word(&ptr);
+	    if(arg2 == NULL)
+	    {
+		errline = line_no;
+		break;
+	    }
+	    a = get_mem(sizeof (struct alias));
+	    at = strchr(arg1, '@');
+	    if (at == arg1) {
+	      a->type = ALIAS_AFTER;
+	      strncpy(a->from, arg1+1, 255);
+	      a->from[254] = 0;
+	      strncpy(a->to, (*arg2=='@' ? arg2+1 : arg2), 255);
+	      a->to[254] = 0;
+	    } else if (at == arg1 + strlen(arg1) - 1) {
+	      a->type = ALIAS_BEFORE;
+	      *at = 0;
+	      strncpy(a->from, arg1, 255);
+	      a->from[254] = 0;
+	      strncpy(a->to, arg2, 255);
+	      a->to[254] = 0;
+	      if ((at = strchr(a->to, '@')) != NULL)
+		*at = 0;
+	    } else {
+	      a->type = ALIAS_ALL;
+	      strncpy(a->from, arg1, 255);
+	      a->from[254] = 0;
+	      strncpy(a->to, arg2, 255);
+	      a->to[254] = 0;
+	    }
+	    a->next = alias0;
+	    alias0 = a;
+	}
 	else
 	{
 	    errline = line_no;
@@ -198,6 +258,56 @@ read_rcfile(fname)
 }
 
 /* ---- global functions ---- */
+
+char *
+resolve_alias(uh) 
+  char *uh;
+{
+  struct alias *a;
+  static char uh1[256], *at;
+  int found = 0;
+
+  for (a=alias0; a; a=a->next)
+    if (a->type == ALIAS_ALL && strcmp(uh, a->from) == 0)
+      return a->to;
+
+  strncpy(uh1, uh, 255);
+  uh1[254] = 0;
+  if ((at = strchr(uh1, '@')) != NULL)
+    *at = 0;
+  for (a=alias0; a; a=a->next) {
+    if (a->type == ALIAS_BEFORE && strcmp(uh1, a->from) == 0) {
+      found = 1;
+      strncpy(uh1, a->to, 255);
+      uh1[254] = 0;
+      if ((at = strchr(uh, '@')) != NULL)
+        if (strlen(uh1) + strlen(at) < 256)
+          strcat(uh1, at);
+      uh = uh1;
+      break;
+    }
+  }
+  if (!found) {
+    strncpy(uh1, uh, 255);
+    uh1[254] = 0;
+  }
+  at = strchr(uh1, '@');
+  if (at && at[1]) {
+    at++;
+    for (a=alias0; a; a=a->next) {
+      if (a->type == ALIAS_AFTER && strcmp(at, a->from) == 0) {
+        found = 1;
+        if (strlen(a->to) + (at - uh1) < 255)
+          strcpy(at, a->to);
+        break;
+      }
+    }
+  }
+  if (found)
+    return uh1;
+  else
+    return uh;
+}
 
 void
 read_ytalkrc()

@@ -21,6 +21,7 @@
 #include "menu.h"
 
 char errstr[132];	/* temporary string for errors */
+char *vhost = NULL;	/* specified virtual host */
 
 /* Clean up and exit.
  */
@@ -33,6 +34,10 @@ bail(n)
     (void)exit(n);
 }
 
+#ifndef HAVE_STRERROR
+#define strerror(n)	(sys_errlist[(n)])
+#endif
+
 /* Display an error.
  */
 void
@@ -43,9 +48,9 @@ show_error(str)
     static int in_error = 0;
 
     if(errno == 0)
-	syserr = "(no system error)";
+	syserr = "";
     else
-	syserr = sys_errlist[errno];
+	syserr = strerror(errno);
 
     putc(7, stderr);
     if(in_error == 0 && what_term() != 0)
@@ -119,7 +124,7 @@ realloc_mem(p, n)
 
 /* Process signals.
  */
-static void
+static RETSIGTYPE
 got_sig(n)
   int n;
 {
@@ -141,28 +146,9 @@ main(argc, argv)
 
     if(sizeof(ylong) != 4)
     {
-	if(sizeof(ylong) > 4)
-	{
-	    fprintf(stderr,
-		"You should have compiled ytalk with the -DY64BIT option.\n");
-	}
-	else
-	{
-#ifdef Y64BIT
-	    fprintf(stderr,
-		"You should NOT have compiled ytalk with the -DY64BIT option.\n");
-#else
-	    fprintf(stderr,
-		"Your machine doesn't support 32-bit longs.  Please mail\n");
-	    fprintf(stderr,
-		"ytalk@austin.eds.com your machine type and OS version.\n");
-	    (void)exit(YTE_INIT);
-#endif
-	}
-	fprintf(stderr,
-	    "See the README file on how to update the appropriate\n");
-	fprintf(stderr,
-	    "makefile, then type 'make clean', 'make'.\n");
+    	fprintf(stderr, "The definition for ylong in header.h is wrong;\n\
+please change it to an unsigned 32-bit type that works on your computer,\n\
+then type 'make clean' and 'make'.\n");
 	(void)exit(YTE_INIT);
     }
 
@@ -188,6 +174,12 @@ main(argc, argv)
 	    iflg++;
 	    argv++, argc--;
 	}
+	else if (strcmp(*argv, "-h") == 0)
+        {
+            argv++;
+            vhost = *argv++;
+ 	    argc -= 2;
+        }
 	else if(strcmp(*argv, "-s") == 0)
 	{
 	    sflg++;	/* immediately start a shell */
@@ -203,10 +195,11 @@ main(argc, argv)
     {
 	fprintf(stderr, 
 "Usage:    %s [options] user[@host][#tty]...\n\
-Options:      -i         --    no auto-invite port\n\
-              -x         --    do not use the X interface\n\
-              -Y         --    require caps on all y/n answers\n\
-              -s         --    start a shell\n", prog);
+Options:     -i             --    no auto-invite port\n\
+             -x             --    do not use the X interface\n\
+             -Y             --    require caps on all y/n answers\n\
+             -s             --    start a shell\n\
+             -h host_or_ip  --    select interface or virtual host\n", prog);
 	(void)exit(YTE_INIT);
     }
 
@@ -216,17 +209,18 @@ Options:      -i         --    no auto-invite port\n\
     signal(SIGHUP, got_sig);
     signal(SIGQUIT, got_sig);
     signal(SIGABRT, got_sig);
+    signal(SIGPIPE, SIG_IGN);
 
     /* set default options */
 
-    def_flags = FL_XWIN;
+    def_flags = FL_XWIN | FL_PROMPTRING | FL_RING;
 
     /* go for it! */
 
     errno = 0;
     init_fd();
-    init_user();
     read_ytalkrc();
+    init_user(vhost);
     if(xflg)
 	def_flags &= ~FL_XWIN;
     if(yflg)
@@ -247,3 +241,4 @@ Options:      -i         --    no auto-invite port\n\
 
     return 0;	/* make lint happy */
 }
+

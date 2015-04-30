@@ -24,6 +24,8 @@ typedef struct _hostinfo {
 
 typedef struct _readdr {
     struct _readdr *next;	/* next in linked list */
+    ylong from_addr;	/* does this apply to me? */
+    ylong from_mask;
     ylong addr;		/* this net address [group?], */
     ylong mask;		/* with this mask, */
     ylong id_addr;		/* thinks I'm at this net address, */
@@ -38,6 +40,13 @@ extern int daemons;
 #define NAME_SIZE 9
 #define TTY_SIZE 16
 
+typedef struct bsd42_sockaddr_in {
+	u_short sin_family;
+	u_short sin_port;
+	struct in_addr sin_addr;
+	char sin_zero[8];
+} BSD42_SOCK;
+
 /* Control Message structure for earlier than BSD4.2
  */
 typedef struct {
@@ -48,8 +57,8 @@ typedef struct {
 	ylong	id_num;
 	ylong	pid;
 	char	r_tty[TTY_SIZE];
-	struct	sockaddr_in addr;
-	struct	sockaddr_in ctl_addr;
+	BSD42_SOCK	addr;
+	BSD42_SOCK	ctl_addr;
 } CTL_MSG;
 
 /* Control Response structure for earlier than BSD4.2
@@ -59,7 +68,7 @@ typedef struct {
 	char	answer;
 	u_short	filler;
 	ylong	id_num;
-	struct	sockaddr_in addr;
+	BSD42_SOCK	addr;
 } CTL_RESPONSE;
 
 /* Control Message structure for BSD4.2
@@ -69,8 +78,8 @@ typedef struct {
 	char	type;
 	u_short	filler;
 	ylong	id_num;
-	struct	sockaddr_in addr;
-	struct	sockaddr_in ctl_addr;
+	BSD42_SOCK	addr;
+	BSD42_SOCK	ctl_addr;
 	ylong	pid;
 	char	l_name[NAME_SIZE];
 	char	l_name_filler[3];
@@ -87,7 +96,7 @@ typedef struct {
 	char	answer;
 	char	filler;
 	ylong	id_num;
-	struct	sockaddr_in addr;
+	BSD42_SOCK	addr;
 } CTL_RESPONSE42;
 
 #define	TALK_VERSION	1		/* protocol version */

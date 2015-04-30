@@ -19,10 +19,31 @@
 #include "header.h"
 #include "socket.h"
 #include "menu.h"
-#include <sys/uio.h>
+
+#ifdef HAVE_IOVEC_H
+# include <iovec.h>
+#endif
+
+#ifdef HAVE_SYS_UIO_H
+# include <sys/uio.h>
+#endif
+
+#include <time.h>
+
+#define IN_ADDR(s)	((s).sin_addr.s_addr)
+
+/* oops, some systems don't have this one */
+#ifndef INADDR_LOOPBACK
+# define INADDR_LOOPBACK 0x7f000001
+#endif
+
 
 ychar *io_ptr;		/* user input pointer */
 int    io_len = 0;	/* user input count */
+
+int    dont_change_my_addr = 0;	/* set if the user specified a vhost, or
+				   after the first time ytalk guesses the
+				   local addr from a getsockname() call */
 
 extern int input_flag;	/* see fd.c */
 
@@ -62,6 +83,7 @@ send_oob(fd, ptr, len)
 {
     ychar oob, size;
     static struct iovec iov[3];
+    int r;
 
     if(len <= 0 || len > V3_MAXPACK)
     {
@@ -81,8 +103,11 @@ send_oob(fd, ptr, len)
     iov[2].iov_base = ptr;
     iov[2].iov_len = len;
 
-    if(writev(fd, iov, 3) != len + 2)
-	show_error("send_oob: write failed");
+    if((r = writev(fd, iov, 3)) != len + 2)
+    {
+    	if (r >= 0 || (errno != EPIPE && errno != ECONNRESET))
+	  show_error("send_oob: write failed");
+    }
 }
 
 /* Ask another ytalk connection if he wants to import a user I've
@@ -98,14 +123,14 @@ send_import(to, from)
 	v3p.host_addr = htonl(from->host_addr);
 	v3p.pid = htonl(from->remote.pid);
 	strncpy(v3p.name, from->user_name, V3_NAMELEN);
-	strncpy(v3p.host, from->host_name, V3_HOSTLEN);
+	strncpy(v3p.host, from->host_fqdn, V3_HOSTLEN);
 	send_oob(to->fd, &v3p, V3_PACKLEN);
     }
     else if(to->remote.vmajor == 2)
     {
 	v2p.code = V2_IMPORT;
 	strncpy(v2p.name, from->user_name, V2_NAMELEN);
-	strncpy(v2p.host, from->host_name, V2_HOSTLEN);
+	strncpy(v2p.host, from->host_fqdn, V2_HOSTLEN);
 	(void)write(to->fd, &v2p, V2_PACKLEN);
     }
 }
@@ -122,14 +147,14 @@ send_accept(to, from)
 	v3p.host_addr = htonl(from->host_addr);
 	v3p.pid = htonl(from->remote.pid);
 	strncpy(v3p.name, from->user_name, V3_NAMELEN);
-	strncpy(v3p.host, from->host_name, V3_HOSTLEN);
+	strncpy(v3p.host, from->host_fqdn, V3_HOSTLEN);
 	send_oob(to->fd, &v3p, V3_PACKLEN);
     }
     else if(to->remote.vmajor == 2)
     {
 	v2p.code = V2_ACCEPT;
 	strncpy(v2p.name, from->user_name, V2_NAMELEN);
-	strncpy(v2p.host, from->host_name, V2_HOSTLEN);
+	strncpy(v2p.host, from->host_fqdn, V2_HOSTLEN);
 	(void)write(to->fd, &v2p, V2_PACKLEN);
     }
 }
@@ -211,7 +236,7 @@ v3_process_pack(user, pack)
   yuser *user;
   v3_pack *pack;
 {
-    register yuser *u;
+    register yuser *u, *u2;
     ylong host_addr, pid;
     static char name[V3_NAMELEN + 1];
     static char host[V3_HOSTLEN + 1];
@@ -244,7 +269,15 @@ v3_process_pack(user, pack)
 	    /* invite him but don't ring him */
 
 	    sprintf(estr, "%s@%s", name, host);
-	    invite(estr, 0);
+	    u2 = invite(estr, 0);
+
+	    /* fix the pid, so that two quick V3_IMPORT requests of the
+	     * same user still get caught  -roger
+	     */
+	    if (u2 != NULL && strcmp(u2->user_name, name) == 0 && 
+	        host_addr == u2->host_addr) {
+	      u2->remote.pid = pid;
+	    }
 
 	    /* now tell him to connect to us */
 
@@ -376,7 +409,7 @@ read_user(fd)
     }
     if((rc = read(fd, buf, 512)) <= 0)
     {
-	if(rc < 0)
+	if(rc < 0 && errno != ECONNRESET && errno != EPIPE)
 	    show_error("read_user: read() failed");
 	free_user(user);
 	return;
@@ -657,7 +690,9 @@ contact_user(fd)
 {
     register yuser *user;
     register int n;
-    int socklen;
+    size_t socklen;
+    struct sockaddr_in peer;
+    char *hname;
 
     remove_fd(fd);
     if((user = fd_to_user[fd]) == NULL)
@@ -670,11 +705,33 @@ contact_user(fd)
     if((n = accept(fd, (struct sockaddr *) &(user->sock), &socklen)) < 0)
     {
 	free_user(user);
-	show_error("connect_user: accept() failed");
+	if (errno != EPIPE && errno != ECONNRESET)
+	    show_error("connect_user: accept() failed");
 	return;
     }
     close(fd);
     fd_to_user[fd] = NULL;
+
+    /* make sure the connection comes from the right place, else
+       update the title to reflect the new name
+     */
+    socklen = sizeof(struct sockaddr_in);
+    if (getpeername(n, (struct sockaddr *)&peer, &socklen) >= 0)
+    {
+        if (IN_ADDR(peer) != user->host_addr)
+	{
+	  if (user->host_name) 
+	      free(user->host_name);
+	  if (user->host_fqdn) 
+	      free(user->host_fqdn);
+	  user->host_addr = IN_ADDR(peer);
+	  hname = host_name(user->host_addr);
+	  user->host_name = str_copy(hname);
+	  user->host_fqdn = str_copy(hname);
+	  generate_full_name(user);
+	  show_error("Connection from unexpected host!");
+	}
+    }
 
     user->fd = n;
     fd_to_user[user->fd] = user;
@@ -757,9 +814,10 @@ announce(user)
 
 /* ---- global functions ---- */
 
+
 /* Invite a user into the conversation.
  */
-void
+yuser *
 invite(name, send_announce)
   register char *name;
   int send_announce;
@@ -772,6 +830,7 @@ invite(name, send_announce)
      * assuming our host as a default.
      */
 
+    name = resolve_alias(name);
     hisname = str_copy(name);
     hishost = NULL;
     histty  = NULL;
@@ -791,7 +850,47 @@ invite(name, send_announce)
     user = new_user(hisname, hishost, histty);
     free(hisname);
     if(user == NULL)
-	return;
+	return NULL;
+
+    /* Trick to handle multihomed hosts.  Bad placement, but this location
+     * in the code makes it easier to patch.  Otherwise, ytalk would need to
+     * be rewritten.  I also could be wrong.
+     *
+     * This trick is the same idea as the talk patch for multihomed hosts
+     * included in NetKit-0.09 for Linux.
+     *
+     * (patch by Sean Farley, simplified & integrated by Roger Espel Llima)
+     */
+
+    if (!dont_change_my_addr)
+    {
+    	struct sockaddr_in tmpsock;
+	int sock, i;
+
+	sock = socket(PF_INET, SOCK_DGRAM, 0);
+
+	if (sock >= 0)
+	{
+	    tmpsock.sin_port = htons(518);
+	    tmpsock.sin_family = AF_INET;
+	    tmpsock.sin_addr.s_addr = user->host_addr;
+	    if (connect(sock, (struct sockaddr *)&tmpsock, sizeof(tmpsock))== 0)
+	    {
+		i = sizeof(struct sockaddr_in);
+
+		/* SysV tends to return 0.0.0.0 here, must check */
+		if (getsockname(sock, (struct sockaddr *) &tmpsock, &i) == 0 &&
+		    tmpsock.sin_addr.s_addr != htonl(INADDR_ANY) &&
+		    tmpsock.sin_addr.s_addr != htonl(INADDR_LOOPBACK))
+		{
+		    me->host_addr = tmpsock.sin_addr.s_addr;
+		    dont_change_my_addr++;
+		}
+	    }
+	    close(sock);
+	}
+    }
+
 
     /* Now send off the invitation */
 
@@ -811,15 +910,21 @@ invite(name, send_announce)
 		continue;
 	    }
 	    free_user(user);
-	    return;
+	    return NULL;
 	}
 	user->last_invite = (ylong)time(NULL);
 	add_fd(user->fd, connect_user);
 	(void)write(user->fd, me->edit, 3);	/* send the edit keys */
-	return;
+	return user;
     }
     if(rc == -1)
-	return;
+    {
+	/* don't ask whether to re-ring for a while even if not successful!
+	 * -roger
+	 */
+	user->last_invite = (ylong)time(NULL);
+	return user;
+    }
 
     /* Leave an invitation for him, and announce ourselves. */
 
@@ -831,7 +936,7 @@ invite(name, send_announce)
     if(newsock(user) != 0)
     {
 	free_user(user);
-	return;
+	return NULL;
     }
     (void)send_dgram(user, LEAVE_INVITE);
     user->last_invite = (ylong)time(NULL);
@@ -844,9 +949,10 @@ invite(name, send_announce)
 	    sprintf(errstr, "%s not logged in", user->full_name);
 	show_error(errstr);
 	free_user(user);
-	return;
+	return NULL;
     }
     add_fd(user->fd, contact_user);
+    return user;
 }
 
 /* Periodic housecleaning.
@@ -880,6 +986,8 @@ house_clean()
 	    (void)send_dgram(u, LEAVE_INVITE);
 	    u->last_invite = t = (ylong)time(NULL);
 	    if(!(def_flags & FL_RING))
+		continue;
+	    if(def_flags & FL_PROMPTRING)
 	    {
 		if(input_flag)
 		    continue;

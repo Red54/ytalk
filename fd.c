@@ -18,8 +18,20 @@
 
 #include "header.h"
 #include "menu.h"
-#include <sys/time.h>
+
+#ifdef TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# ifdef HAVE_SYS_TIME
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
+#endif
+
 #include <signal.h>
+
 #ifdef _AIX
 # include <sys/select.h>
 #endif
@@ -110,7 +122,11 @@ main_loop()
 {
     register int fd, rc;
     struct timeval tv;
-#ifndef Y_USE_SIGHOLD
+
+#ifdef HAVE_SIGPROCMASK
+    sigset_t mask, old_mask;
+#endif
+#ifdef HAVE_SIGSETMASK
     int mask, old_mask;
 #endif
 
@@ -118,14 +134,14 @@ main_loop()
      * processing, else some craziness might occur.
      */
 
-#ifndef Y_USE_SIGHOLD
-
-    mask = 0;
-
-# ifdef SIGWINCH
-    mask |= sigmask(SIGWINCH);
+#ifdef SIGWINCH
+# ifdef HAVE_SIGPROCMASK
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGWINCH);
 # endif
-
+# ifdef HAVE_SIGSETMASK
+    mask = sigmask(SIGWINCH);
+# endif
 #endif
 
 #if defined(SIGCHLD)
@@ -168,12 +184,16 @@ main_loop()
 
 	/* block signals while doing internal processing */
 
-#ifdef Y_USE_SIGHOLD
-# ifdef SIGWINCH
+#ifdef SIGWINCH
+# ifdef HAVE_SIGPROCMASK
+	sigprocmask(SIG_BLOCK, &mask, &old_mask);
+# endif
+# ifdef HAVE_SIGSETMASK
+	old_mask = sigblock(mask);
+# endif
+# ifdef HAVE_SIGHOLD
 	sighold(SIGWINCH);
 # endif
-#else
-	old_mask = sigblock(mask);
 #endif
 
 	/* process file descriptors with input waiting */
@@ -199,13 +219,18 @@ main_loop()
 
 	/* re-allow signals */
 
-#ifdef Y_USE_SIGHOLD
-# ifdef SIGWINCH
+#ifdef SIGWINCH
+# ifdef HAVE_SIGPROCMASK
+	sigprocmask(SIG_SETMASK, &old_mask, NULL);
+# endif
+# ifdef HAVE_SIGSETMASK
+	sigsetmask(old_mask);
+# endif
+# ifdef HAVE_SIGHOLD
 	sigrelse(SIGWINCH);
 # endif
-#else
-	sigsetmask(old_mask);
 #endif
+
 	if(user_winch)
 	{
 	    /* This is a cute hack that updates a user menu

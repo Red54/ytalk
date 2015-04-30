@@ -17,15 +17,23 @@
 /* Mail comments or questions to ytalk@austin.eds.com */
 
 #include "header.h"
-#include <sys/ioctl.h>
-#ifdef USE_SGTTY
-# ifdef hpux
-#  include <sys/bsdtty.h>
-#  include <sgtty.h>
-# endif
-#else
-# include <termios.h>
+
+#ifdef HAVE_SYS_IOCTL_H
+# include <sys/ioctl.h>
 #endif
+
+#ifdef HAVE_TERMIOS_H
+# include <termios.h>
+#else
+# ifdef HAVE_SGTTY
+#  include <sgtty.h>
+#  ifdef hpux
+#   include <sys/bsdtty.h>
+#  endif
+#  define USE_SGTTY
+# endif
+#endif
+
 #include "cwin.h"
 #include "xwin.h"
 #include "menu.h"
@@ -41,6 +49,7 @@ static void (*_rev_scroll_term)(); /* scroll down one line */
 static void (*_flush_term)();	/* flush pending output */
 
 static int term_type = 0;
+
 #ifdef USE_SGTTY
  static int line_discipline;
  static int local_mode;
@@ -170,7 +179,7 @@ init_term()
 
     /* set me up a terminal */
 
-    sprintf(tmpstr, "YTalk version %d.%d (%d)", VMAJOR, VMINOR, VPATCH);
+    sprintf(tmpstr, "YTalk version %d.%d.%d", VMAJOR, VMINOR, VPATCH);
     if(open_term(me, tmpstr) < 0)
     {
 	end_term();

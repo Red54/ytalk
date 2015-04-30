@@ -1,144 +1,128 @@
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-This version of ytalk has been modified (patched) by orabidoo
-<roger.espel.llima@pobox.com>, to fix a few bugs and add a few options.
 
-Use at your own risk.
+				YTalk
 
-One bug fix makes the ytalk shell wrap its lines properly, instead of
-making a column to the right of your screen. This is local, so if you
-are patched and whoever you're talking to isn't, you will always see it
-right and they will see it wrong.
+YTalk is a compatible replacement for the Unix talk(1) program, which
+adds a number of features.  Mainly, it can talk to more than one person
+at a time, and it can the two different types of talk daemons out there.
 
-The other bug fix makes ytalk process the "set scrolling-zone" escape
-sequence (ESC[r) properly, which lets programs such as IRC work
-within a ytalk shell.
+For compilation and installation instructions, please see the file
+`INSTALL' in the same directory.  The gist of it is:
 
-Also, I've added an option in the makefile to use Solaris's ptys, since
-they seem to handle them differently from everyone else.
+	./configure 
+	make 
+	make install
 
-The new options are -Y, to require CAPS on all y/n answers (so you don't 
-answer without wanting to, when it asks you to add someone..), and -i, 
-which won't attempt to catch new incoming talk requests with a "talk to
-blah@blah?", but will just let the daemon beep you. In my opinion, you
-always want -Y, and you want -i only if you have a separate window or
-screen or console for talk requests.
+YTalk was written and maintained by Britt Yenne up to verison 3.0pl2.
+That version was released years ago, and there have been no new releases
+since then, so I (Roger Espel Llima, <roger.espel.llima@pobox.com>) have
+taken up maintenance, updating the code to work with newer Unixes,
+fixing bugs and adding new features.  
 
-You can specify these by adding the lines "turn caps on",
-"turn noinvite on", respectively, to your ~/.ytalkrc.
+YTalk is free software, which can be freely redistributed, used and
+modified as long as the copyright notices are kept in the source and
+header files. 
 
-Added the option "kill all unconnected" to the main menu, which makes
-ytalk forget about any pending connections (i.e. people we are ringing
-but haven't answered yet). This is useful when you are trying to get a
-bunch of people on a ytalk and have them there finally, but then you
-find that you're still trying to rering some of them.
-
-Made it so that when ytalk is about to exit, it doesn't clear the window
-for the last user who is disconnecting, so you still get to see the last
-few lines the person typed if they ^C when you're not watching that
-screen.
-
-Some of these patches have been mailed to the ytalk maintainers, so they 
-*might* make it into some future release.
+If you hack in new neat things, or fix bugs, or have ideas about new
+features, feel free to mail me at <roger.espel.llima@pobox.com> about
+it.  Same if you have trouble compiling or running YTalk.
 
 
-30 Oct 96: 
-
-Yet another patch... now you can define EIGHT_BIT_CLEAN in the Makefile,
-and if your curses is 8-bit-clean you'll have all those wonderful
-accented characters (as long as the other end has them too, of course).
-
-Also, ^H and Delete (ASCII 8 and 127 respectively) are *always*
-understood as delete characters now, in addition to whatever is set by
-your stty (it's not clean, but it works better this way in practice).
+===========================================================================
 
 
-11 Nov 96 :
+Changes in YTalk since version 3.1 :
 
-Removed the whole TCP NODELAY mode, since all that does is disable the
-Nagle algorithm, which at most delays packets by .2 sec (right?).
+    + Now looks a bit harder for the fqdn of the current machine.
+
+    + Fixed problems with ncurses resizing under Linux, and (again) with 
+      Ytalk shells under Solaris.
+
+    + YTalk now complains (and prints the right hostname) if a
+      connection is answered from an unexpected host.
+
+    + Fixed the checks to prevent user duplication (getting twice the
+      same user in an n-way talk where n>=4).
+
+    + More portability fixes for 64-bit machines.
+
+    + Fixed the "readdress" option somewhat.
 
 
+Changes in YTalk since version 3.0pl2 :
 
-The original README follows:
+* New features:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + Configuration through GNU Autoconf, no more Imakefiles or Makefiles
+      to edit "to suit your system".
 
-YTalk Make Procedure:
+    + Aliases: you can now alias hosts, usernames, and full addresses,
+      by defining aliases in your ~/.ytalkrc:
+	 -  "alias nick@ longusername@" 
+	          will replace any "nick@anyhost" with "longusername@anyhost".
+ 	 -  "alias @short @longhostname"
+		  will replace any user@short with "user@longhostname".
+         -  "alias nick username@hostname"
+		  will replace "nick" with "username@hostname".
 
-    To restore the Makefile to its original state, run:
+    + Support for virtual hosts and multiple aliases; you can choose the
+      interface (IP address) to use in either of 3 ways:
+	 -  using the "-h hostname_or_ip" command-line option
+	 -  setting the environment variable LOCALHOST to the hostname or
+		IP address
+	 -  putting the line "localhost my-hostname-or-ip" in ~/.ytalkrc
 
-	make start
+    + Command-line option "-Y" lets you require CAPS on all y/n answers,
+      so you don't answer "yes" just because you happen to type a 'y' in
+      the middle of conversation.  
+      Add "turn caps on" to your ~/.ytalkrc to have this by default.
 
-    If wish to support the X11 interface, edit the configuration at
-    the top of the 'Imakefile' file then run:
+    + Command-line option "-i" to turn off trying to catch new incoming
+      talk requests (just get the usual message from talk_daemon instead).
+      Add "turn noinvite on" to your ~/.ytalkrc to do this by default.
 
-	xmkmf 
-	make
-    
-    If you do not have "xmkmf" on your system, then you cannot support
-    X11 through ytalk at this time.  Ask your system administrator to
-    install "xmkmf" (it stands for "X Make Makefile").
+    + Added "Kill all unconnected" (k) to the main menu; if you're trying
+      to ring some more people, and want to give up, just press ESC k.
 
-    If you do not have X11 installed on your system, or you do not
-    wish to support the X11 interface, then edit the configuration at
-    the top of the 'Makefile' file then run:
+    + You can now choose between three possibilities for auto-rering:
+      no rerings at all ("turn rering off"), prompt for rerings 
+      ("turn rerings on" and "turn prompt-rering on"), and fully 
+      automatic rerings ("turn rerings on" and "turn prompt-rering off").
+      Both rerings and prompting are on by default.
 
-	make
+    + YTalk attempts not to clears the screen when it exists if the
+      other end ^C'd, so you get to see the end of the conversation even
+      if you weren't paying attention.  
+      
+      Depending on your terminal definitions, this may not work unless
+      you take out the escape sequences that clear the screen, from the
+      'te' termcap entry, and/or from the rmcup terminfo entry.
 
-The resulting executable program will be named "ytalk".
 
-If you ever go back and change some configuration parameters at the
-top of Imakefile or Makefile, you should run 'make clean' before running
-'xmkmf' and/or 'make' again.  This will ensure that everything recompiles.
+* Bug fixes: 
 
-A manpage will automatically be built.  It will be named "ytalk.cat".
-You can read the manual page by running:
+    + Fixed a bug where Ytalk would often not find the talk daemon under
+      Linux, because of the slightly different UDP error reporting.
 
-	more ytalk.cat
+    + Ytalk shells wrap their lines properly now.
 
-If you make changes to this source code or if you have any ideas for
-neat new features, _PLEASE_ mail me and let me know about it.  Chances
-are I'll incorporate your ideas/changes into the next version and put a
-great big "thank you" note to you in the documentation and source
-code.  If you do change something or add features, and you intend to
-give a copy to a friend, please make sure _your_ name appears somewhere
-in the documentation so that _I_ don't get reams of mail or bug reports
-about features I didn't know existed... :-)
+    + The "set scrolling zone" escape sequence (ESC[r) now works in shells;
+      this is used e.g. by IRC clients.
 
-If you have questions or suggestions, I'd be happy to hear from you
-at this email address:
+    + Added support for Solaris-style PTYs, so YTalk shells work under
+      Solaris.
 
-    ytalk@austin.eds.com
+    + Made YTalk 8-bit clean, so you can use accented characters in your
+      conversation (assuming the other side has an 8-bit clean (y)talk too).
 
----- PATCH LEVEL 02
+    + Deleting is a bit more robust: both ^H and ^?, as well as what is
+      defined by your stty, are now understood to be the delete key.
 
-  1. Remove #elif directive, patch by Pete Wenzel.
-  2. Recognize if party is refusing messages, thanks to J. Adam Hawkes.
-  3. Linux support, thanks to Thilo Wunderlich.
-  4. Port to AIX 3.1+.
-  5. Add -s option to start in a shell, thanks to Mark Musone.
-  6. Fix various error messages.
-  7. Fix possible obscure bug in socket.c.
+    + Made Ytalk attempt to send the fully qualified hostname when exporting
+      user connections, so remote machines have a chance of finding the host.
 
----- PATCH LEVEL 01
+    + Fixed some compatibility problems with BSD4.4 system like FreeBSD,
+      where the definition of a struct sockaddr_in changed.
 
-  1. Forcibly reset the scrolling region after a shell exits.
-  2. Handle a local X resize while in a shell.
-  3. Repair the password entry lookup stuff.
-  4. Character-wrap to next line if word-wrap is disabled.
-  5. Solaris 2.* support, patch by Magnus Hammerin.
-  6. Aside messages in X, patch by Jonas Yngvesson.
-  7. Fix X support, patch by Carl Edman.
-  8. Option -x to disable X from the command line, thanks to John Vanderpool.
-  9. Ctrl-L or ctrl-R to redraw screen, thanks to Shih-Chen Huang.
- 10. Fix bizarre WINCH bug in exec.c.
- 11. Handle 64-bit machines, thanks to Andrew Myers.
- 12. Implement raw/cooked curses -- fixes 8-bit/parity problems with some
-     terminals and allows ytalk to be suspended.  Thanks to Duncan Sinclair.
- 13. System ytalkrc file, thanks to Evan McLean.
- 14. Place user's full name in title bar, thanks to Evan McLean.
- 15. Better imake support, thanks to Carl Edman.
- 16. Installation features for make.
- 17. Fix X resource database calls, patch by Andreas Stolcke.
- 18. Fix cross-platform problems, thanks to Larry Schwimmer.
+
+The README for YTalk 3.0pl2 can be found in the file README.old.
 

@@ -17,7 +17,13 @@
 /* Mail comments or questions to ytalk@austin.eds.com */
 
 #include "header.h"
-#include <curses.h>
+
+#if defined(HAVE_LIBNCURSES) && defined(HAVE_NCURSES_H)
+# include <ncurses.h>
+#else
+# include <curses.h>
+#endif
+
 #include <sys/signal.h>
 #include "cwin.h"
 
@@ -196,7 +202,7 @@ curses_start()
 
 /* Restart curses... window size has changed.
  */
-static void
+static RETSIGTYPE
 curses_restart()
 {
     register ywin *w;
@@ -214,8 +220,10 @@ curses_restart()
 
     endwin();
     curses_start();
-    curses_redraw();
+
+    /* fix for ncurses from Max <Marc.Espie@liafa.jussieu.fr> */
     refresh();
+    curses_redraw();
 
     /* some systems require we do this again */
 

@@ -19,8 +19,10 @@
 #include "header.h"
 #include "menu.h"
 #include <pwd.h>
+#include <string.h>
 
 extern char *getlogin();
+extern int dont_change_my_addr;
 
 yuser *me;			/* my user information */
 yuser *user_list;		/* list of invited/connected users */
@@ -28,23 +30,12 @@ yuser *connect_list;		/* list of connected users */
 yuser *wait_list;		/* list of connected users */
 yuser *fd_to_user[MAX_FILES];	/* convert file descriptors to users */
 yuser *key_to_user[128];	/* convert menu ident chars to users */
-ylong def_flags = 0L;		/* default FL_* flags */
+ylong def_flags = 0L;	/* default FL_* flags */
 static ylong daemon_id;	/* running daemon ID counter */
 
 /* ---- local functions ----- */
 
 static int passwd_opened = 0;
-
-static int
-user_id(name)
-  char *name;
-{
-    register struct passwd *pw;
-    passwd_opened = 1;
-    if((pw = getpwnam(name)) == NULL)
-	return -60000;	/* for most archs, an impossible user ID */
-    return pw->pw_uid;
-}
 
 static char *
 user_name(uid)
@@ -67,7 +58,7 @@ close_passwd()
     }
 }
 
-static void
+void
 generate_full_name(user)
   yuser *user;
 {
@@ -82,7 +73,7 @@ generate_full_name(user)
 
     if(c < ce)
 	*(c++) = '@';
-    for(d = user->host_name; *d && c < ce; d++)
+    for(d = user->host_fqdn; *d && c < ce; d++)
 	*(c++) = *d;
 
     if(user->tty_name[0])
@@ -129,10 +120,11 @@ assign_key(user)
 /* Initialize user data structures.
  */
 void
-init_user()
+init_user(vhost)
+char *vhost;
 {
     int my_uid;
-    char *my_name;
+    char *my_name, *my_vhost;
     char my_host[100];
 
     user_list = NULL;
@@ -145,9 +137,8 @@ init_user()
 
     /* get my username */
 
-    if((my_name = getlogin()) != NULL)
-	if(user_id(my_name) != my_uid)
-	    my_name = NULL;
+    if ((my_name = getenv("USER")) == NULL)
+	my_name = getlogin();
     if(my_name == NULL)
 	my_name = user_name(my_uid);
     if(my_name == NULL)
@@ -160,16 +151,40 @@ init_user()
 
     /* get my hostname */
 
-    if(gethostname(my_host, 100) < 0)
+    if ((my_vhost = vhost) || (my_vhost = getenv("LOCALHOST")))
     {
-	show_error("init_user: gethostname() failed");
-	bail(YTE_ERROR);
+	strncpy(my_host, my_vhost, 99);
+	dont_change_my_addr = 1;
     }
+    else 
+    {
+	if(gethostname(my_host, 100) < 0)
+	{
+	    show_error("init_user: gethostname() failed");
+	    bail(YTE_ERROR);
+	}
+	else
+	{
+	    /* try to find the fqdn */
+	    if (strchr(my_host, '.') == NULL)
+	    {
+	      ylong adr = get_host_addr(my_host);
+	      if (adr != 0 && adr != (ylong)-1)
+	      {
+		char *name = host_name(adr);
+		if (name && strchr(name, '.'))
+		  strncpy(my_host, name, 99);
+	      }
+	    }
+	}
+    }
+    my_host[99] = 0;
 
     /* get my user record */
 
     if((me = new_user(my_name, my_host, NULL)) == NULL)
 	bail(YTE_ERROR);
+    me->key = '@';
     me->remote.protocol = YTP_NEW;
     me->remote.vmajor = VMAJOR;
     me->remote.vminor = VMINOR;
@@ -207,6 +222,10 @@ new_user(name, hostname, tty)
     (void)memset(out, 0, sizeof(yuser));
     out->user_name = str_copy(name);
     out->host_name = str_copy(hostname);
+    if (strchr(hostname, '.'))
+      out->host_fqdn = str_copy(hostname);
+    else
+      out->host_fqdn = str_copy(host_name(addr));
     out->host_addr = addr;
     if(tty)
 	out->tty_name = str_copy(tty);
