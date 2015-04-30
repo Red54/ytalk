@@ -134,7 +134,7 @@ main(argc, argv)
   int argc;
   char **argv;
 {
-    int xflg = 0, sflg = 0;
+    int xflg = 0, sflg = 0, yflg = 0, iflg = 0;
     char *prog;
 
     /* check for a 64-bit mis-compile */
@@ -178,6 +178,16 @@ main(argc, argv)
 	    xflg++;	/* disable X from the command line */
 	    argv++, argc--;
 	}
+	else if(strcmp(*argv, "-Y") == 0)
+	{
+	    yflg++;
+	    argv++, argc--;
+	}
+	else if(strcmp(*argv, "-i") == 0)
+	{
+	    iflg++;
+	    argv++, argc--;
+	}
 	else if(strcmp(*argv, "-s") == 0)
 	{
 	    sflg++;	/* immediately start a shell */
@@ -191,7 +201,12 @@ main(argc, argv)
 
     if(argc <= 0)
     {
-	fprintf(stderr, "Usage: %s [-x] user[@hostname][#tty]...\n", prog);
+	fprintf(stderr, 
+"Usage:    %s [options] user[@host][#tty]...\n\
+Options:      -i         --    no auto-invite port\n\
+              -x         --    do not use the X interface\n\
+              -Y         --    require caps on all y/n answers\n\
+              -s         --    start a shell\n", prog);
 	(void)exit(YTE_INIT);
     }
 
@@ -214,6 +229,11 @@ main(argc, argv)
     read_ytalkrc();
     if(xflg)
 	def_flags &= ~FL_XWIN;
+    if(yflg)
+	def_flags |= FL_CAPS;
+    if(iflg)
+	def_flags |= FL_NOAUTO;
+
     init_term();
     init_socket();
     for(; argc > 0; argc--, argv++)

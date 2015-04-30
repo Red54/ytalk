@@ -43,6 +43,7 @@ static menu_item main_menu[] = {
     { "",			NULL,		' ' },
     { "add a user",		main_menu_sel,	'a' },
     { "delete a user",		main_menu_sel,	'd' },
+    { "kill all unconnected",	main_menu_sel,  'k' },
     { "options",		main_menu_sel,	'o' },
     { "shell",			main_menu_sel,	's' },
     { "user list",		main_menu_sel,	'u' },
@@ -136,6 +137,12 @@ do_invite(name)
 }
 
 static void
+kill_all_unconnected()
+{
+    while(wait_list) free_user(wait_list);
+}
+
+static void
 main_menu_sel(key)
   ychar key;
 {
@@ -148,6 +155,10 @@ main_menu_sel(key)
 	case 'd':	/* delete a user */
 	    if(show_user_menu("Delete Which User?", free_user) >= 0)
 		update_menu();
+	    break;
+	case 'k':	/* kill all unconnected users */
+	    kill_all_unconnected();
+	    kill_menu();
 	    break;
 	case 'o':	/* show options */
 	    if(show_option_menu() >= 0)
@@ -880,12 +891,12 @@ yes_no(prompt)
 	}
 	for(; io_len > 0; io_len--, io_ptr++)
 	{
-	    if(*io_ptr == 'y' || *io_ptr == 'Y')
+	    if(*io_ptr == 'Y' || (*io_ptr == 'y' && !(def_flags&FL_CAPS)))
 	    {
 		out = 'y';
 		break;
 	    }
-	    if(*io_ptr == 'n' || *io_ptr == 'N' || *io_ptr == 27)
+	    if(*io_ptr == 'N' || (*io_ptr == 'n' && !(def_flags&FL_CAPS)) || *io_ptr == 27)
 	    {
 		out = 'n';
 		break;

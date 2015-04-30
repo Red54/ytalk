@@ -1,3 +1,68 @@
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This version of ytalk has been modified (patched) by orabidoo
+<roger.espel.llima@pobox.com>, to fix a few bugs and add a few options.
+
+Use at your own risk.
+
+One bug fix makes the ytalk shell wrap its lines properly, instead of
+making a column to the right of your screen. This is local, so if you
+are patched and whoever you're talking to isn't, you will always see it
+right and they will see it wrong.
+
+The other bug fix makes ytalk process the "set scrolling-zone" escape
+sequence (ESC[r) properly, which lets programs such as IRC work
+within a ytalk shell.
+
+Also, I've added an option in the makefile to use Solaris's ptys, since
+they seem to handle them differently from everyone else.
+
+The new options are -Y, to require CAPS on all y/n answers (so you don't 
+answer without wanting to, when it asks you to add someone..), and -i, 
+which won't attempt to catch new incoming talk requests with a "talk to
+blah@blah?", but will just let the daemon beep you. In my opinion, you
+always want -Y, and you want -i only if you have a separate window or
+screen or console for talk requests.
+
+You can specify these by adding the lines "turn caps on",
+"turn noinvite on", respectively, to your ~/.ytalkrc.
+
+Added the option "kill all unconnected" to the main menu, which makes
+ytalk forget about any pending connections (i.e. people we are ringing
+but haven't answered yet). This is useful when you are trying to get a
+bunch of people on a ytalk and have them there finally, but then you
+find that you're still trying to rering some of them.
+
+Made it so that when ytalk is about to exit, it doesn't clear the window
+for the last user who is disconnecting, so you still get to see the last
+few lines the person typed if they ^C when you're not watching that
+screen.
+
+Some of these patches have been mailed to the ytalk maintainers, so they 
+*might* make it into some future release.
+
+
+30 Oct 96: 
+
+Yet another patch... now you can define EIGHT_BIT_CLEAN in the Makefile,
+and if your curses is 8-bit-clean you'll have all those wonderful
+accented characters (as long as the other end has them too, of course).
+
+Also, ^H and Delete (ASCII 8 and 127 respectively) are *always*
+understood as delete characters now, in addition to whatever is set by
+your stty (it's not clean, but it works better this way in practice).
+
+
+11 Nov 96 :
+
+Removed the whole TCP NODELAY mode, since all that does is disable the
+Nagle algorithm, which at most delays packets by .2 sec (right?).
+
+
+
+The original README follows:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 YTalk Make Procedure:
 
     To restore the Makefile to its original state, run:

@@ -17,6 +17,7 @@
 /* Mail comments or questions to ytalk@austin.eds.com */
 
 #include "header.h"
+#include "menu.h"
 #include <pwd.h>
 
 extern char *getlogin();
@@ -273,6 +274,12 @@ free_user(user)
 	    }
 
     /* close him down */
+
+    if(connect_list == NULL
+        && wait_list == NULL
+        && menu_ptr == NULL
+        && running_process == 0)
+            bail(0);
 
     close_term(user);
     free(user->full_name);

@@ -12,7 +12,7 @@
 .SH NAME
 ytalk - A multi-user chat program. 
 .SH SYNOPSIS
-.B ytalk [-x] [-s] username...
+ytalk [-x] [-s] [-Y] [-i] username...
 .SH DESCRIPTION
 .I YTalk V3.0 Patch Level 2
 .PP
@@ -43,6 +43,12 @@ You can specify multiple user names on the command line, ie:
 The -x option disables the X11 interface (described below).
 .PP
 The -s option starts your YTalk window in a shell.
+.PP
+The -i option disables the auto-invite port (meaning you won't see
+"talk to blah@blah.com", but your talk daemon will beep you instead).
+.PP
+The -Y option requires a capital Y or N as an answer to any yes/no
+question.
 .PP
 For each user on the command line, YTalk will attempt to connect to the talk
 daemon on the specified user's host and determine if that user has left an
@@ -102,6 +108,8 @@ moment has these options:
 .br
         d: delete a user
 .br
+        k: kill all unconnected
+.br
         o: options
 .br
         s: shell
@@ -118,6 +126,9 @@ invitation from that user if an invitation exists, or will leave an invitation
 and ring the given user.
 .PP
 By choosing option "d", you can select the name of a connection to terminate.
+.PP
+By choosing option "k", you can make YTalk forget all pending (waiting)
+connections.
 .PP
 By choosing option "o", you can view and/or modify any of the YTalk options.
 See the OPTIONS section below for a list of YTalk options.
@@ -145,7 +156,7 @@ windowed message like:
 .PP
 and he will be prompted for a yes/no answer.  This, in my opinion, is much
 preferable to blitting the announcement message and messing up user B's
-screen.
+screen. The command-line option "-i" turns this off.
 
 .SH RUNTIME OPTIONS
 When you select Options off of the main menu, you are given the opportunity
@@ -219,6 +230,9 @@ is one of
 .I auto-import ,
 .I auto-invite ,
 .I auto-rering ,
+.I caps ,
+.I noinvite ,
+.I nodelay ,
 .I asides ,
 or
 .I X .
@@ -333,6 +347,10 @@ $HOME/.ytalkrc
 Britt Yenne
 .br
 yenne@austin.eds.com
+.PP
+This version maintained by
+.br
+<roger.espel.llima@pobox.com>
 
 .SH CONTRIBUTORS
 Special thanks to Carl Edman for numerous code patches, beta testing,
@@ -360,9 +378,8 @@ and ideas.
 The README file shipped with ytalk gives detailed attributions.
 
 .SH BUGS
-
-If you have any ideas, comments, or questions, I'd be happy to hear from you
-at:
-
-	ytalk@austin.eds.com
-
+Hostnames of new connections passed to other connected parties are
+sometimes missing the domain part.
+.PP
+Please mail any other bugs to the maintainer of this version, at
+<roger.espel.llima@pobox.com>

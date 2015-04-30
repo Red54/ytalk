@@ -504,7 +504,8 @@ init_socket()
     nmsg.vers = TALK_VERSION;
 
     (void)find_daemon(me->host_addr);
-    init_autoport();
+    if (!(def_flags & FL_NOAUTO))
+	init_autoport();
 }
 
 /* Close every open descriptor.  This should only be used for a quick

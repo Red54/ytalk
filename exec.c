@@ -20,6 +20,10 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/wait.h>
+#ifdef PTM
+#include <stropts.h>
+#include <sys/conf.h>
+#endif
 #ifdef USE_SGTTY
 # include <sys/ioctl.h>
 # ifdef hpux
@@ -50,6 +54,11 @@ setsid()
 }
 #endif
 
+#ifdef PTM
+extern char *ptsname();
+int needtopush=0;
+#endif
+
 static int
 getpty(name)
   char *name;
@@ -57,6 +66,20 @@ getpty(name)
     register int pty, tty;
     char *pty_dev = "/dev/ptc", *tt;
     extern char *ttyname();
+
+#ifdef PTM
+    if ((pty=open("/dev/ptmx", O_RDWR)) >= 0)
+    {
+	grantpt(pty);
+	unlockpt(pty);
+	if ((tt=ptsname(pty)) != NULL)
+	{
+	    strcpy(name, tt);
+	    needtopush=1;
+	    return pty;
+	}
+    }
+#endif
 
     /* first look for a SYSV-type pseudo device */
 
@@ -174,6 +197,13 @@ execute(command)
             exit(-1);
         if((fd = open(name, O_RDWR)) < 0)
             exit(-1);
+#ifdef PTM
+	if (needtopush)
+	{
+	    ioctl(fd, I_PUSH, "ptem");
+	    ioctl(fd, I_PUSH, "ldterm");
+	}
+#endif
         dup2(fd, 0);
         dup2(fd, 1);
         dup2(fd, 2);

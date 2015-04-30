@@ -104,6 +104,18 @@ set_option(opt, value)
     || strcmp(opt, "as") == 0)
 	mask |= FL_ASIDE;
     
+    if(strcmp(opt, "caps") == 0
+    || strcmp(opt, "CAPS") == 0
+    || strcmp(opt, "ca") == 0
+    || strcmp(opt, "CA") == 0)
+	mask |= FL_CAPS;
+
+    if(strcmp(opt, "noinvite") == 0
+    || strcmp(opt, "no-invite") == 0
+    || strcmp(opt, "noinv") == 0
+    || strcmp(opt, "ni") == 0)
+	mask |= FL_NOAUTO;
+
     if(!mask)
 	return -1;
 

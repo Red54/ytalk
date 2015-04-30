@@ -1143,6 +1143,7 @@ process_esc:
 		    if(user->av[1] > 0)
 			user->av[1]--;
 		    set_scroll_region(user, user->av[0], user->av[1]);
+		    move_term(user, 0, 0);
 		    user->got_esc = 0;
 		    break;
 		default:
@@ -1157,7 +1158,7 @@ process_esc:
     }
     for(; len > 0; len--, buf++)
     {
-	if(*buf >= ' ' && *buf <= '~')
+	if (is_printable(*buf))
 	{
 	    if(user->x + 1 >= user->cols)
 	    {
@@ -1285,7 +1286,7 @@ my_input(user, buf, len)
 		c = buf;
 		for(; len > 0; buf++, len--)
 		{
-		    if(*buf == me->old_rub)
+		    if(*buf == me->old_rub || *buf == 8 || *buf == 0x7f)
 			*buf = me->RUB;
 		    else if(*buf == '\r')
 			*buf = '\n';

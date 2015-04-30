@@ -17,6 +17,17 @@
 ## CONFIGURATION  (The Fun Part) ##
 ###################################
 #
+# If you are on a System V machine (such as Solaris 2.x), uncomment
+# the following line:
+
+# VDEFS = -DSYSV
+
+# If you're on Solaris you NEED this one for ytalk shells; it might
+# work on other Sys V machines too
+
+# PDEFS = -DPTM
+
+#
 # If your machine does not support TERMIOS (example: any NeXT running
 # NeXTStep up to and including version 3.1), then uncomment the following
 # line.
@@ -42,6 +53,13 @@
 #BDEFS = -DY64BIT
 
 #
+# If you want ytalk to be 8-bit clean, you need to define this.  Note that
+# this requires linking with an 8-bit clean (n)curses.  Under SunOS 4.x,
+# set CC to /usr/5bin/cc for this to work.
+
+EBCDEFS = -DEIGHT_BIT_CLEAN
+
+#
 # If you have (or want) a system-wide .ytalkrc file, uncomment the next
 # line and set it to the correct pathname.  The backslashes must remain
 # before each double-quote.
@@ -56,20 +74,27 @@
 Y_BINDIR = /usr/local/bin
 Y_MANDIR = /usr/local/man/man1
 
+# Uncomment if you have gcc - recommended
+
+CC = gcc
+
+
 ############################################################
 ## Past this point, you shouldn't need to modify anything ##
 ############################################################
 LIB = -lcurses -ltermcap $(SLIBS) $(XLIB)
-CFLAGS = -I/usr/local/include $(TDEFS) $(BDEFS) $(RCDEF)
+CFLAGS = -I/usr/local/include $(TDEFS) $(BDEFS) $(RCDEF) $(VDEFS) $(PDEFS) \
+			      $(EBCDEFS) -O
 LDFLAGS = $(LDOPTIONS)
 OBJ = main.o term.o user.o fd.o comm.o menu.o socket.o rc.o exec.o cwin.o \
       xwin.o
 PRG = ytalk
 
-all:	$(PRG) ytalk.cat
+all:	$(PRG)
 
 $(PRG):	$(OBJ)
 	$(CC) $(LDFLAGS) -o $(PRG) $(OBJ) $(LIB)
+	strip $(PRG)
     
 ytalk.cat:	ytalk.1
 	nroff -man ytalk.1 > ytalk.cat
@@ -82,7 +107,7 @@ shar:
 	shar -i Manifest -o ytalk-3.0.shar -t "== Now read the README file =="
 
 clean::
-	-rm -f $(OBJ)
+	-rm -f $(OBJ) $(PRG)
 
 install:: $(PRG)
 	/bin/cp ytalk $(Y_BINDIR)

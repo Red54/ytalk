@@ -34,7 +34,15 @@
 
 #define VMAJOR	3	/* major version number */
 #define VMINOR	0	/* minor version number */
-#define VPATCH	2	/* patch level */
+#define VPATCH	3	/* patch level */
+
+#ifdef EIGHT_BIT_CLEAN
+#define is_printable(x)  ( (((x) >= ' ' && (x) <= '~') || \
+			    (unsigned char)(x) >= 0xa0) \
+			  && (x) != RUBDEF )
+#else
+#define is_printable(x) ( (x) >= ' ' && (x) <= '~' )
+#endif
 
 /* ---- YTalk protocols ---- */
 
@@ -131,6 +139,8 @@ typedef struct _yuser {
 #define FL_RING		0x00000020L	/* auto-rering enabled */
 #define FL_XWIN		0x00000040L	/* X Windows enabled (startup opt) */
 #define FL_ASIDE	0x00000080L	/* multiple window input/asides */
+#define FL_CAPS		0x00000100L     /* want caps as answers */
+#define FL_NOAUTO       0x00000200L     /* no auto-invite port */
 #define FL_LOCKED	0x40000000L	/* flags locked by other end */
 
 /* ---- defines and short-cuts ---- */

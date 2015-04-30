@@ -279,7 +279,7 @@ addch_term(user, c)
   register yuser *user;
   register ychar c;
 {
-    if(c >= ' ' && c <= '~')
+    if (is_printable(c))
     {
 	_addch_term(user, c);
 	user->scr[user->y][user->x] = c;
@@ -300,8 +300,8 @@ move_term(user, y, x)
   register yuser *user;
   register int y, x;
 {
-    if(y < 0 || y >= user->rows)
-	y = user->rows - 1;
+    if(y < 0 || y > user->sc_bot)
+	y = user->sc_bot;
     if(x < 0 || x >= user->cols)
     {
 	user->bump = 1;
@@ -537,17 +537,16 @@ newline_term(user)
     new_y = user->y + 1;
     if(user->flags & FL_RAW)
     {
-	if(new_y >= user->rows)
+	if(new_y > user->sc_bot)
 	{
 	    if(user->flags & FL_SCROLL)
 		scroll_term(user);
 	}
-	else
-	    move_term(user, new_y, user->x);
+        move_term(user, new_y, 0);
     }
     else
     {
-	if(new_y >= user->rows)
+	if(new_y > user->sc_bot)
 	{
 	    if(user->flags & FL_SCROLL)
 	    {
@@ -1046,12 +1045,16 @@ set_scroll_region(user, top, bottom)
   yuser *user;
   int top, bottom;
 {
-    if(top < 0 || top >= user->rows)
-	return;
-    if(bottom < top || bottom >= user->rows)
-	return;
+    if(top < 0 || top >= user->rows || bottom >= user->rows || bottom < top
+       || (bottom <= 0 && top <= 0))
+    {
+	user->sc_top = 0;
+	user->sc_bot = user->rows - 1;
+    } else
+    {
     user->sc_top = top;
     user->sc_bot = bottom;
+    }
 }
 
 /* Send a message to the terminal.
@@ -1163,7 +1166,7 @@ raw_term(user, y, x, str, len)
     {
 	if(*c == '\0')
 	    c = str;
-	if(*c < ' ' || *c > '~')
+	if (!is_printable(*c))
 	    return;
 	_addch_term(user, *c);
     }
