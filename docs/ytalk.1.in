@@ -1,5 +1,5 @@
 '''
-'''  Ytalk Version 3.1.1
+'''  YTalk Version @VERSION@
 '''
 .de Sh
 .br
@@ -8,19 +8,19 @@
 \fB\\$1\fR
 .PP
 ..
-.TH YTalk 1 "10 May 1999"
+.TH YTalk 1 "2 Jan 2005" "YTalk @VERSION@"
 .SH NAME
-ytalk - A multi-user chat program. 
+ytalk - A multi-user chat program.
 .SH SYNOPSIS
-ytalk [-x] [-s] [-Y] [-i] [-h hostname_or_ip] username...
+.BI "ytalk [-s] [-Y] [-E] [-i] [-q] [-v] [-h " hostname_or_ip "] " username...
 .SH DESCRIPTION
-.I YTalk V3.1.1
+.I YTalk @VERSION@
 .PP
 YTalk is in essence a multi-user chat program.  It works almost exactly like
 the UNIX talk program and even communicates with the same talk daemon(s), but
 YTalk allows for multiple connections.
 
-The 
+The
 .I username
 field may be formatted in several different ways:
 .br
@@ -30,8 +30,8 @@ field may be formatted in several different ways:
 .br
 	name#tty      - some user on a particular terminal
 .br
-	name#tty@host - some user on a particular tty on a 
-.br 
+	name#tty@host - some user on a particular tty on a
+.br
 				 different machine
 .br
 	name@host#tty - same as "name#tty@host"
@@ -42,19 +42,38 @@ You can specify multiple user names on the command line, ie:
 .sp
 	ytalk george fred@hissun.edu marc@grumpy.cc
 .PP
-The -x option disables the X11 interface (described below).
+The
+.B -s
+option starts your YTalk window in a shell.
 .PP
-The -s option starts your YTalk window in a shell.
+The
+.B -Y
+option requires a capital Y or N as an answer to any yes/no
+question.
 .PP
-The -i option disables the auto-invite port (meaning you won't see
+The
+.B -E
+option requires you to press escape once before answering a
+yes/no question (for people who type looking at the keyboard).
+.PP
+The
+.B -i
+option disables the auto-invite port (meaning you won't see
 "talk to blah@blah.com", but your talk daemon will beep you instead).
 .PP
-The -h option specifies the name or address of the local machine; this
+The
+.B -q
+option causes YTalk to prompt you before quitting.
+.PP
+The
+.B -v
+option prints the program version and exits.
+.PP
+The
+.B -h
+option specifies the name or address of the local machine; this
 is useful on multi-homed machines, or virtual hosts, to specify which
 network interface to use for communication.
-.PP
-The -Y option requires a capital Y or N as an answer to any yes/no
-question.
 .PP
 For each user on the command line, YTalk will attempt to connect to the talk
 daemon on the specified user's host and determine if that user has left an
@@ -85,11 +104,6 @@ Right now, the number of connected users is limited by the number of lines
 on your terminal (or window), for each connected user needs at least three
 lines.
 .PP
-YTalk does implement primitive support of the X11 Windowing System.  If the
-environment variable DISPLAY is set, then YTalk attempts to connect to that
-X server.  Further details about the X11 interface (and how to turn it off)
-are given below.
-.PP
 As each new user is added to the conversation, YTalk will transmit information
 about that user to all other connected YTalk users so that their screens will
 also subdivide and incorporate the new user.  If the new user is using UNIX
@@ -105,8 +119,8 @@ understand the limitations that UNIX "talk" places on YTalk is to test
 various connections between the two and see how things work.
 .PP
 .SH ESCAPE MENU
-Whenever you are using YTalk, you can hit the 
-.I ESCAPE 
+Whenever you are using YTalk, you can hit the
+.I ESCAPE
 key to bring up a menu which at this
 moment has these options:
 .sp
@@ -117,6 +131,8 @@ moment has these options:
         k: kill all unconnected
 .br
         o: options
+.br
+        r: rering all
 .br
         s: shell
 .br
@@ -138,6 +154,9 @@ connections.
 .PP
 By choosing option "o", you can view and/or modify any of the YTalk options.
 See the OPTIONS section below for a list of YTalk options.
+.PP
+By choosing option "r", all users that have not yet responded to your talk
+invitation will be re-rung.
 .PP
 By choosing option "s", you can invoke a shell in your YTalk window.  All
 other users will see what happens in your shell.  YTalk will automatically
@@ -180,7 +199,7 @@ to edit the YTalk options.  The current options are:
 .br
 	p: [don't] prompt before rerings
 .br
-	a: turn asides [off/on]
+	q: [don't] prompt before quitting
 .PP
 If
 .I scrolling
@@ -215,10 +234,8 @@ If
 is turned on, then YTalk will ask you before re-ringing a user.
 .PP
 If
-.I asides
-is turned on (it may not be available), then keyboard input received while
-the input focus is in a specific users' window will only be sent to that
-user.  See the X11 interface description below.
+.I prompt-quit
+is turned on, then YTalk will wait for keyboard input before quitting.
 .PP
 Any of these options can be set to your preference in your .ytalkrc file,
 as described below.
@@ -242,15 +259,14 @@ is one of
 .I auto-invite ,
 .I rering ,
 .I prompt-rering ,
+.I prompt-quit ,
 .I caps ,
+.I escape-yesno ,
 .I noinvite ,
-.I nodelay ,
-.I asides ,
+.I ignorebreak ,
 or
-.I X .
-Setting these options works just like described above.  Turning
-.I X
-on or off will enable or disable the X11 Interface described below.
+.I beeps .
+Setting these options works just like described above.
 For example, one could enable word-wrap with the line:
 .sp
 	turn word-wrap on
@@ -279,7 +295,7 @@ command in your .ytalkrc file.  The syntax is:
 .B "localhost \fIhostname-or-IP-address\fR"
 
 .Sh "SETTING RE-ADDRESS MODES"
-The purpose of readdressing is to allow Ytalk connections across
+The purpose of readdressing is to allow YTalk connections across
 point-to-point network gateways where the local machines know themselves
 by a different address (and typically hostname) than the remote machines.
 The basic syntax of a readdress command is this:
@@ -329,48 +345,6 @@ which the office machines basically ignore.
 Note that, in this case, the problem could also have been solved by
 telling the home YTalk to use the 192.67.141.0 interface, when doing
 YTalk requests across the PPP link.
-.PP
-Enough.  For more information on how to use this, consult the source code
-or send me a letter.  :-)
-.SH X11 INTERFACE
-If the DISPLAY environment variable is defined when YTalk starts up, then
-YTalk will attempt to communicate with that X server.  A window will be
-created for you and each user you are connected to.  The X11 Interface can
-be disabled either by specifying -x on the command line or by putting this
-line into your .ytalkrc file:
-.sp
-	turn X off
-.PP
-A window is created for each individual user in the conversation.  If the
-input focus is in the main window (ie: the one with "ytalk" in the title
-bar) then anything typed will be sent to all connected users.  If the input
-focus is in one of the users' windows, then anything typed will be sent
-as an aside to only that user.  If the "aside" option is turned off (see
-above) then ytalk will beep and not accept anything typed when the input
-focus is not in the main window.
-.PP
-YTalk consults the X11 Resource Database for these user-definable
-configuration options:
-.sp
-    YTalk.display:  X server to connect to, defaulting to the
-DISPLAY environment variable.
-.sp
-    YTalk.reverse:  reverse black/white pixels.
-.sp
-    YTalk.font:  font to use, defaulting to "9x15".
-.sp
-    YTalk.geometry:  window size, defaulting to  "80x24".
-.SH FUTURE WORK
-Work is being done on the following ideas:
-.sp
-.br
-	1) a dedicated YTalk daemon.
-.br
-	2) MBCS/NLS support.
-.br
-.PP
-However, as this was claimed over 5 years ago, I wouldn't hold my breath on 
-it. :=)
 
 .SH FILES
 
@@ -378,23 +352,27 @@ it. :=)
 .br
     System-wide defaults file.
 .PP
-$HOME/.ytalkrc
+~/.ytalkrc
 .br
     User's local configuration file.  This file overrides
 .br
     options set in the system ytalkrc file.
 
-.SH AUTHOR
+.SH CURRENT MAINTAINER
+
+Andreas Kling
+.br
+<keso@impul.se>
+
+.SH ORIGINAL AUTHOR
 
 Britt Yenne
-.br
-yenne@austin.eds.com
 
-.SH CURRENT MAINTAINER
+.SH PAST MAINTAINERS
 
 Roger Espel Llima
 .br
-<roger.espel.llima@pobox.com>
+Jessica Peterson
 
 .SH CONTRIBUTORS
 Special thanks to Carl Edman for numerous code patches, beta testing,
@@ -421,8 +399,24 @@ and ideas.
 .PP
 Thanks to Steve McIntyre for patches and ideas.
 .PP
-The README file shipped with ytalk gives detailed attributions.
+Thanks to Katarina Erkkonen for CVS hosting.
+.PP
+Thanks to Alexander Rigbo for patches, testing and many good ideas.
 
 .SH BUGS
 Please mail any bugs to the maintainer of this version, at
-<roger.espel.llima@pobox.com>
+<keso@impul.se>
+
+.SH SEE ALSO
+http://www.impul.se/ytalk/
+
+.SH LICENSE
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+\fBWITHOUT ANY WARRANTY\fR; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.

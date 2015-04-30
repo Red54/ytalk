@@ -26,14 +26,11 @@ take.  The most important ones are:
   --prefix=PREFIX         install architecture-independent files in PREFIX
                           (/usr/local by default)
   --bindir=DIR            user executables in DIR (PREFIX/bin)
-  --infodir=DIR           info documentation in DIR [PREFIX/info]
   --mandir=DIR            man documentation in DIR [PREFIX/man]
 
-  --with-x		  use the X11 interface (default)
-  --without-x		  do not use the X11 interface; use text only
+  --with-curses=DIR       specify where to find curses
 
-  --x-includes=DIR	  specify where X11's include files are
-  --x-libraries=DIR	  specify where X11's libraries are
+  --enable-debug          compile in memory tracking and debug messages
 
 
 The `./configure' script also understands a number of environment variables:
@@ -58,7 +55,7 @@ files, but it is useful to have a look at things you can change there.
 
 To compile the program, type make and cross your fingers.  YTalk is
 fairly portable, so this _should_ work out of the box.  If it doesn't,
-please mail me with all the details at <roger.espel.llima@pobox.com>.
+please mail me with all the details at <keso@impul.se>.
 
 After the compilation, a ready to use `ytalk' executable should reside
 in the distribution directory.  Other than missing its system-wide
@@ -85,7 +82,7 @@ Makefile.
 To delete the files created by Ytalk installation, you can use make
 uninstall.
 
-4) Acknowledgements
+4) Acknowledgements (Roger Espel Llima)
 
 Previous YTalk versions were maintained by Britt Yenne; since version
 3.0pl2 was released quite a few years ago, I assume he has lost interest
@@ -98,4 +95,3 @@ Most of these installation instructions are taken word-for-word from the
 rest of the YTalk package (which is freely copyable as long as the
 copyright notices are kept in the sources), this file is (probably)
 covered by the GNU General Public License version 2.
-
