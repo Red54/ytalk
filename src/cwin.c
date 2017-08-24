@@ -22,6 +22,8 @@
 #include "header.h"
 #include "mem.h"
 
+#include <locale.h>
+
 #ifdef HAVE_NCURSES_H
 # include <ncurses.h>
 #else
@@ -196,6 +198,7 @@ static void
 curses_start()
 {
 	char *term;
+	setlocale(LC_ALL, "");
 	if (initscr() == NULL) {
 		term = getenv("TERM");
 		fprintf(stderr, "Error opening terminal: %s.\n", (term ? term : "(null)"));

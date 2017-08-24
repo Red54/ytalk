@@ -56,7 +56,7 @@ extern char *ptsname();
 
 #ifdef EIGHT_BIT_CLEAN
 # define is_printable(x)  ( (((x) >= ' ' && (x) <= '~') || \
-			    (unsigned char)(x) >= 0xa0) \
+			    (unsigned char)(x) >= 0x80) \
 			  && (x) != RUBDEF )
 #else
 # define is_printable(x) ( (x) >= ' ' && (x) <= '~' )
